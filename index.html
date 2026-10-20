@@ -144,6 +144,53 @@
     <!-- =================================================================== -->
     <section id="tab-dashboard" class="tab-panel space-y-4">
 
+      <!-- Live BLE Stream & Diagnostics Strip -->
+      <div id="bleDiagCard" class="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-slate-300">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-slate-500" id="diagDot"></span>
+            <span class="font-medium text-slate-400">Nhận BLE:</span>
+            <span id="diagBytesRx" class="font-mono font-bold text-slate-400">0 B (0 gói)</span>
+          </div>
+          <div class="hidden sm:inline text-slate-700">•</div>
+          <div class="text-slate-400">
+            Khung giải mã: <span id="diagFrames" class="font-mono text-slate-300">0x01: 0 | 0x02: 0 | 0x03: 0</span>
+          </div>
+          <div class="hidden md:inline text-slate-700">•</div>
+          <div class="text-slate-400">
+            Lệnh gần nhất: <span id="diagLastCmd" class="font-mono text-amber-400">Chưa gửi</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="btnQuickCmd96" type="button" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition">
+            Gửi 0x96 (Cell)
+          </button>
+          <button id="btnQuickCmd97" type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[11px] font-semibold transition">
+            Gửi 0x97 (Tên/MK)
+          </button>
+        </div>
+      </div>
+
+      <!-- No Data Alert Banner (Shown when connected but 0 bytes received after 4s) -->
+      <div id="noDataAlert" class="hidden p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div class="flex items-start sm:items-center gap-2.5">
+          <svg class="w-5 h-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <div class="font-bold text-rose-300">Đã kết nối Bluetooth nhưng chưa có dữ liệu gửi về từ mạch (0 Bytes).</div>
+            <div class="text-slate-300 mt-0.5">
+              1. Hãy <strong>vuốt tắt hẳn app JK-BMS gốc</strong> trên điện thoại (mạch chỉ cho phép 1 kết nối tại một thời điểm).<br>
+              2. Bấm nút <strong>"Kích hoạt gửi lại lệnh 0x97 & 0x96"</strong> bên cạnh để ép mạch gửi dữ liệu.
+            </div>
+          </div>
+        </div>
+        <button id="btnForceWakeup" type="button" class="px-3.5 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold text-xs shrink-0 shadow-lg shadow-rose-900/30 transition">
+          Kích hoạt gửi lại lệnh 0x97 & 0x96
+        </button>
+      </div>
+
+
       <!-- Quick Identity & Password Strip -->
       <div class="glass-card rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-3">
@@ -1014,46 +1061,189 @@
       return false;
     }
 
-    // =========================================================================
-    // KẾT NỐI WEB BLUETOOTH ĐA NỀN TẢNG (HỖ TRỢ TỐI ĐA CHO BLUEFY & ANDROID)
+        // =========================================================================
+    // KẾT NỐI WEB BLUETOOTH ĐA NỀN TẢNG (TỐI ƯU TOÀN DIỆN CHO BLUEFY / IOS & ANDROID)
     // =========================================================================
     let bleDevice = null;
-    let activeWriteChar = null;
+    let writeCharacteristics = [];
+    let notifyCharacteristics = [];
     let bleRxBuffer = [];
     let cmdCounter = 1;
+    let heartbeatTimer = null;
+    let noDataWatchdogTimer = null;
 
-    function feedBleBytes(uint8Chunk) {
-      if (bleRxBuffer.length > 320) {
-        bleRxBuffer = [];
+    const bleStats = {
+      bytesReceived: 0,
+      chunksReceived: 0,
+      frames01: 0,
+      frames02: 0,
+      frames03: 0,
+      lastRxTime: null,
+      lastCmdSent: 'Chưa gửi',
+      serviceCount: 0,
+      charCount: 0
+    };
+
+    function updateBleDiagUI() {
+      const bytesEl = document.getElementById('diagBytesRx');
+      const framesEl = document.getElementById('diagFrames');
+      const cmdEl = document.getElementById('diagLastCmd');
+      const dotEl = document.getElementById('diagDot');
+      const noDataBanner = document.getElementById('noDataAlert');
+
+      if (bytesEl) {
+        let sizeStr = bleStats.bytesReceived + ' B';
+        if (bleStats.bytesReceived >= 1024) {
+          sizeStr = (bleStats.bytesReceived / 1024).toFixed(1) + ' KB';
+        }
+        bytesEl.textContent = `${sizeStr} (${bleStats.chunksReceived} gói)`;
+        if (bleStats.bytesReceived > 0) {
+          bytesEl.className = 'font-mono font-bold text-emerald-400';
+        }
       }
-      if (
-        uint8Chunk.length >= 4 &&
-        uint8Chunk[0] === 0x55 &&
-        uint8Chunk[1] === 0xAA &&
-        uint8Chunk[2] === 0xEB &&
-        uint8Chunk[3] === 0x90
-      ) {
-        bleRxBuffer = [];
+
+      if (framesEl) {
+        framesEl.textContent = `0x01: ${bleStats.frames01} | 0x02: ${bleStats.frames02} | 0x03: ${bleStats.frames03}`;
       }
-      for (let i = 0; i < uint8Chunk.length; i++) {
-        bleRxBuffer.push(uint8Chunk[i]);
+
+      if (cmdEl) {
+        cmdEl.textContent = bleStats.lastCmdSent;
       }
-      if (bleRxBuffer.length >= 300) {
-        const frame = new Uint8Array(bleRxBuffer.slice(0, 300));
-        bleRxBuffer = [];
-        decodeJkFrame(frame);
+
+      if (dotEl) {
+        if (bmsState.connected && bleStats.bytesReceived > 0) {
+          dotEl.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        } else if (bmsState.connected) {
+          dotEl.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        } else {
+          dotEl.className = 'w-2 h-2 rounded-full bg-slate-500';
+        }
+      }
+
+      if (noDataBanner) {
+        if (bmsState.connected && bleStats.bytesReceived === 0) {
+          noDataBanner.classList.remove('hidden');
+        } else {
+          noDataBanner.classList.add('hidden');
+        }
       }
     }
 
+    function feedBleBytes(uint8Chunk) {
+      if (!uint8Chunk || uint8Chunk.length === 0) return;
+      bleStats.bytesReceived += uint8Chunk.length;
+      bleStats.chunksReceived += 1;
+      bleStats.lastRxTime = new Date();
+      updateBleDiagUI();
+
+      for (let i = 0; i < uint8Chunk.length; i++) {
+        bleRxBuffer.push(uint8Chunk[i]);
+      }
+
+      // Bộ phân tích trượt theo chuẩn luồng dữ liệu liên tục (Sliding Window Stream Parser)
+      while (bleRxBuffer.length >= 300) {
+        if (
+          bleRxBuffer[0] === 0x55 &&
+          bleRxBuffer[1] === 0xAA &&
+          bleRxBuffer[2] === 0xEB &&
+          bleRxBuffer[3] === 0x90
+        ) {
+          const crc = calcCrc8(bleRxBuffer, 299);
+          if (crc === bleRxBuffer[299]) {
+            const frame = new Uint8Array(bleRxBuffer.slice(0, 300));
+            bleRxBuffer.splice(0, 300);
+            const frameType = frame[4];
+            if (frameType === 0x01) bleStats.frames01++;
+            else if (frameType === 0x02) bleStats.frames02++;
+            else if (frameType === 0x03) bleStats.frames03++;
+            decodeJkFrame(frame);
+            updateBleDiagUI();
+          } else {
+            // Lệch CRC: trượt tiến 1 byte để tìm khung tiếp theo
+            bleRxBuffer.shift();
+          }
+        } else {
+          // Tìm vị trí chuỗi mào đầu 55 AA EB 90 tiếp theo trong bộ đệm
+          let found = -1;
+          for (let i = 1; i <= bleRxBuffer.length - 4; i++) {
+            if (
+              bleRxBuffer[i] === 0x55 &&
+              bleRxBuffer[i + 1] === 0xAA &&
+              bleRxBuffer[i + 2] === 0xEB &&
+              bleRxBuffer[i + 3] === 0x90
+            ) {
+              found = i;
+              break;
+            }
+          }
+          if (found !== -1) {
+            bleRxBuffer.splice(0, found);
+          } else {
+            // Giữ lại 3 byte cuối cùng phòng trường hợp mào đầu bị cắt đôi giữa 2 gói tin BLE
+            bleRxBuffer = bleRxBuffer.slice(-3);
+            break;
+          }
+        }
+      }
+
+      // Giới hạn an toàn dung lượng bộ nhớ đệm
+      if (bleRxBuffer.length > 2048) {
+        bleRxBuffer = [];
+      }
+    }
+
+    async function writeToCharacteristic(char, data) {
+      let written = false;
+      // 1. Thử writeValueWithoutResponse (chuẩn tối ưu cho BLE throughput cao)
+      if (typeof char.writeValueWithoutResponse === 'function') {
+        try {
+          await char.writeValueWithoutResponse(data);
+          written = true;
+        } catch (e1) {
+          console.warn('writeValueWithoutResponse failed, trying fallback:', e1);
+        }
+      }
+      // 2. Thử writeValueWithResponse
+      if (!written && typeof char.writeValueWithResponse === 'function') {
+        try {
+          await char.writeValueWithResponse(data);
+          written = true;
+        } catch (e2) {
+          console.warn('writeValueWithResponse failed, trying writeValue:', e2);
+        }
+      }
+      // 3. Thử writeValue (chuẩn cũ của WebBLE trên iOS Bluefy)
+      if (!written && typeof char.writeValue === 'function') {
+        try {
+          await char.writeValue(data);
+          written = true;
+        } catch (e3) {
+          console.warn('writeValue failed:', e3);
+        }
+      }
+      return written;
+    }
+
     async function writeJkCommand(cmdByte) {
-      if (!activeWriteChar) return;
+      if (!writeCharacteristics || writeCharacteristics.length === 0) {
+        showToast('Chưa tìm thấy kênh ghi lệnh BLE trên mạch!', 'error');
+        return false;
+      }
       cmdCounter = (cmdCounter + 1) & 0xFF;
       const frame = buildCommandFrame(cmdByte, cmdCounter);
-      if (activeWriteChar.properties.writeWithoutResponse && activeWriteChar.writeValueWithoutResponse) {
-        await activeWriteChar.writeValueWithoutResponse(frame);
-      } else {
-        await activeWriteChar.writeValue(frame);
+      let successCount = 0;
+      for (const char of writeCharacteristics) {
+        try {
+          const ok = await writeToCharacteristic(char, frame);
+          if (ok) successCount++;
+        } catch (e) {
+          console.warn('Lỗi ghi lệnh tới characteristic:', e);
+        }
       }
+      const hexCmd = `0x${cmdByte.toString(16).toUpperCase()}`;
+      bleStats.lastCmdSent = hexCmd;
+      updateBleDiagUI();
+      return successCount > 0;
     }
 
     async function connectWebBluetooth() {
@@ -1065,32 +1255,31 @@
       try {
         showToast('Đang quét Bluetooth... Chọn mạch JK-BMS của bạn trong danh sách.', 'info');
 
-        // Danh sách dịch vụ dạng chuỗi chuẩn 128-bit và 16-bit ngắn
+        // Danh sách dịch vụ tương thích toàn diện cho cả chuẩn 128-bit lẫn 16-bit
         const optServices = [
-          JK_SERVICE_UUID_STR,
-          JK_CHAR_UUID_STR,
-          JK_CHAR_ALT_UUID_STR,
+          '0000ffe0-0000-1000-8000-00805f9b34fb',
+          '0000fee0-0000-1000-8000-00805f9b34fb',
+          '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
           'ffe0',
-          'ffe1',
-          'ffe2'
+          'fee0'
         ];
 
         let dev = null;
-        // Bước 1: Thử gọi requestDevice với bộ lọc tên và dịch vụ
         try {
           dev = await navigator.bluetooth.requestDevice({
             filters: [
-              { services: [JK_SERVICE_UUID_STR] },
+              { services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] },
               { services: ['ffe0'] },
               { namePrefix: 'JK' },
               { namePrefix: 'B1A' },
               { namePrefix: 'B2A' },
-              { namePrefix: 'BMS' }
+              { namePrefix: 'BMS' },
+              { namePrefix: 'pin' },
+              { namePrefix: 'PIN' }
             ],
             optionalServices: optServices
           });
         } catch (filterErr) {
-          // Bước 2: Nếu bộ lọc bị chặn hoặc không có kết quả, quét tất cả thiết bị
           dev = await navigator.bluetooth.requestDevice({
             acceptAllDevices: true,
             optionalServices: optServices
@@ -1103,62 +1292,150 @@
         showToast(`Đang kết nối tới ${bleDevice.name || 'JK-BMS'}...`, 'info');
         const server = await bleDevice.gatt.connect();
 
-        // Lấy dịch vụ chính (thử chuỗi 128-bit trước, sau đó chuỗi 16-bit)
-        let service = null;
+        writeCharacteristics = [];
+        notifyCharacteristics = [];
+        bleRxBuffer = [];
+        bleStats.bytesReceived = 0;
+        bleStats.chunksReceived = 0;
+        bleStats.frames01 = 0;
+        bleStats.frames02 = 0;
+        bleStats.frames03 = 0;
+        bleStats.lastCmdSent = 'Đang khởi tạo...';
+        updateBleDiagUI();
+
+        // 1. Duyệt tìm toàn bộ các Primary Services được cấp phép
+        let services = [];
         try {
-          service = await server.getPrimaryService(JK_SERVICE_UUID_STR);
-        } catch (e1) {
+          services = await server.getPrimaryServices();
+        } catch (errServ) {
           try {
-            service = await server.getPrimaryService('ffe0');
-          } catch (e2) {
-            const allServices = await server.getPrimaryServices();
-            service = allServices.find((s) => s.uuid.toLowerCase().includes('ffe0')) || allServices[0];
+            const s1 = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+            if (s1) services.push(s1);
+          } catch (e1) {
+            try {
+              const s2 = await server.getPrimaryService('ffe0');
+              if (s2) services.push(s2);
+            } catch (e2) {}
           }
         }
 
-        if (!service) {
+        if (!services || services.length === 0) {
           throw new Error('Không tìm thấy dịch vụ Bluetooth FFE0 trên mạch.');
         }
 
-        const chars = await service.getCharacteristics();
-        let notifyChar = null;
-        let writeChar = null;
+        bleStats.serviceCount = services.length;
 
-        for (const c of chars) {
-          const uuidLow = c.uuid.toLowerCase();
-          if (uuidLow.includes('ffe1') || uuidLow.includes('ffe2')) {
-            if (c.properties.notify && !notifyChar) notifyChar = c;
-            if ((c.properties.writeWithoutResponse || c.properties.write) && !writeChar) writeChar = c;
+        // 2. Duyệt tìm và khởi tạo toàn bộ Characteristics trên tất cả services
+        for (const s of services) {
+          try {
+            const chars = await s.getCharacteristics();
+            bleStats.charCount += chars.length;
+            for (const c of chars) {
+              const p = c.properties || {};
+
+              // Đăng ký nhận thông báo dữ liệu (Notify / Indicate)
+              const canNotify = p.notify || p.indicate || typeof c.startNotifications === 'function';
+              if (canNotify) {
+                try {
+                  await c.startNotifications();
+                  const handleNotify = (ev) => {
+                    try {
+                      const target = ev.target || ev.currentTarget;
+                      const dv = target ? target.value : null;
+                      if (!dv) return;
+                      const chunk = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+                      feedBleBytes(chunk);
+                    } catch (errVal) {
+                      console.error('Lỗi nhận gói BLE notification:', errVal);
+                    }
+                  };
+                  c.addEventListener('characteristicvaluechanged', handleNotify);
+                  c.oncharacteristicvaluechanged = handleNotify;
+                  notifyCharacteristics.push(c);
+                } catch (errNoti) {
+                  console.warn('startNotifications không thành công trên char:', c.uuid, errNoti);
+                }
+              }
+
+              // Ghi nhận characteristic cho phép ghi lệnh (Write)
+              const canWrite = p.write || p.writeWithoutResponse || typeof c.writeValueWithoutResponse === 'function' || typeof c.writeValue === 'function';
+              if (canWrite) {
+                writeCharacteristics.push(c);
+              }
+            }
+          } catch (errChars) {
+            console.warn('Không thể đọc characteristics của service:', s.uuid, errChars);
           }
         }
-        if (!notifyChar && chars.length > 0) notifyChar = chars[0];
-        if (!writeChar) writeChar = notifyChar;
-        activeWriteChar = writeChar;
 
-        await notifyChar.startNotifications();
-        notifyChar.addEventListener('characteristicvaluechanged', (ev) => {
-          const val = new Uint8Array(ev.target.value.buffer);
-          feedBleBytes(val);
-        });
+        // Nếu c.properties trên Bluefy không trả về đúng cờ write, thêm dự phòng
+        if (writeCharacteristics.length === 0 && notifyCharacteristics.length > 0) {
+          writeCharacteristics = [...notifyCharacteristics];
+        }
+
+        if (notifyCharacteristics.length === 0 && writeCharacteristics.length === 0) {
+          throw new Error('Không tìm thấy characteristic nào hỗ trợ truyền nhận dữ liệu BLE FFE1.');
+        }
 
         bmsState.connected = true;
         updateConnectionHeader();
+        updateBleDiagUI();
 
-        // Gửi 0x97 (đọc tên, mật khẩu) và 0x96 (đọc cài đặt & điện áp cell)
-        await writeJkCommand(0x97);
+        // 3. Gửi lệnh kích hoạt chuỗi đọc dữ liệu
+        // Lệnh 0x97: Đọc tên, mật khẩu kết nối, mật khẩu cài đặt
+        setTimeout(async () => {
+          try {
+            await writeJkCommand(0x97);
+          } catch (e) {}
+        }, 350);
+
+        // Lệnh 0x96: Kích hoạt mạch trả về Frame 0x01 (Cài đặt) và luồng Frame 0x02 (Điện áp cell)
         setTimeout(async () => {
           try {
             await writeJkCommand(0x96);
           } catch (e) {}
-        }, 600);
+        }, 850);
 
-        showToast(`Đã kết nối thành công tới ${bleDevice.name || 'JK-BMS'}!`, 'success');
+        // 4. Cơ chế gửi lệnh định kỳ (Heartbeat Polling Loop)
+        // Một số firmware JK-BMS chỉ phản hồi Frame 0x02 khi nhận lệnh 0x96 liên tục
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        let heartBeatTicks = 0;
+        heartbeatTimer = setInterval(async () => {
+          if (!bmsState.connected || writeCharacteristics.length === 0) return;
+          heartBeatTicks++;
+          try {
+            // Nếu chưa đọc được mật khẩu / thông tin mạch, định kỳ hỏi lại 0x97
+            if (!bmsState.hasDeviceInfo && heartBeatTicks % 3 === 1) {
+              await writeJkCommand(0x97);
+            }
+            // Định kỳ gửi 0x96 mỗi 2.5s để giữ luồng dữ liệu cell luôn cập nhật
+            if (heartBeatTicks % 2 === 0) {
+              await writeJkCommand(0x96);
+            }
+          } catch (eHeart) {
+            console.warn('Lỗi chu kỳ heartbeat:', eHeart);
+          }
+        }, 2200);
+
+        // 5. Watchdog kiểm tra nếu sau 3.5s chưa nhận được byte nào thì hiển thị cảnh báo hướng dẫn
+        if (noDataWatchdogTimer) clearTimeout(noDataWatchdogTimer);
+        noDataWatchdogTimer = setTimeout(() => {
+          if (bmsState.connected && bleStats.bytesReceived === 0) {
+            updateBleDiagUI();
+          }
+        }, 3500);
+
+        showToast(`Đã kết nối thành công tới ${bleDevice.name || 'JK-BMS'}! Đang đọc thông số...`, 'success');
       } catch (err) {
+        bmsState.connected = false;
+        writeCharacteristics = [];
+        notifyCharacteristics = [];
+        updateConnectionHeader();
+        updateBleDiagUI();
+
         const errText = (err && (err.message || err.name)) ? `${err.name || ''}: ${err.message || ''}`.trim() : String(err);
-        // Bắt lỗi số 2 đặc thù của Bluefy/iOS
         if (errText === '2' || errText.includes('2') || errText.includes('connectionTimeout') || errText.includes('readNotPermitted') || errText.includes('User cancelled') || errText.includes('abort')) {
           showToast('Lỗi kết nối BLE (Mã 2): Mạch JK đang bị giữ bởi app khác, hoặc chưa cấp quyền Bluetooth cho Bluefy. Hãy vuốt tắt hẳn app JK-BMS gốc trên iPhone rồi thử lại!', 'error');
-          // Mở banner hướng dẫn nếu đang ẩn
           const banner = document.getElementById('iosHelpBanner');
           if (banner) banner.classList.remove('hidden');
         } else {
@@ -1169,8 +1446,18 @@
 
     function onBleDisconnected() {
       bmsState.connected = false;
-      activeWriteChar = null;
+      writeCharacteristics = [];
+      notifyCharacteristics = [];
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+      if (noDataWatchdogTimer) {
+        clearTimeout(noDataWatchdogTimer);
+        noDataWatchdogTimer = null;
+      }
       updateConnectionHeader();
+      updateBleDiagUI();
       showToast('Đã ngắt kết nối Bluetooth với mạch JK-BMS.', 'info');
     }
 
@@ -1214,7 +1501,7 @@
 
       document.getElementById('protocolBadge').textContent = proto;
 
-      document.getElementById('quickDeviceName').textContent = d.deviceName || 'Chưa kết nối';
+      document.getElementById('quickDeviceName').textContent = bmsState.connected ? (d.deviceName || (bleDevice && bleDevice.name ? bleDevice.name : 'Đang đọc...')) : 'Chưa kết nối';
       document.getElementById('quickModel').textContent = d.vendorId || '--';
       document.getElementById('quickPinBle').textContent = d.devicePasscode || '--';
       document.getElementById('quickSetupPw').textContent = d.setupPasscode || '--';
@@ -1576,8 +1863,48 @@
       });
 
       // Nút Làm mới lệnh 0x97 & 0x96
+            // Nút gửi nhanh lệnh 0x96 & 0x97 trên thanh chẩn đoán
+      const btnQ96 = document.getElementById('btnQuickCmd96');
+      if (btnQ96) {
+        btnQ96.addEventListener('click', async () => {
+          if (!bmsState.connected) {
+            showToast('Chưa kết nối Bluetooth tới mạch.', 'info');
+            return;
+          }
+          await writeJkCommand(0x96);
+          showToast('Đã gửi lệnh 0x96 yêu cầu thông số Cell & Cài đặt.', 'success');
+        });
+      }
+
+      const btnQ97 = document.getElementById('btnQuickCmd97');
+      if (btnQ97) {
+        btnQ97.addEventListener('click', async () => {
+          if (!bmsState.connected) {
+            showToast('Chưa kết nối Bluetooth tới mạch.', 'info');
+            return;
+          }
+          await writeJkCommand(0x97);
+          showToast('Đã gửi lệnh 0x97 yêu cầu Tên & Mật khẩu.', 'success');
+        });
+      }
+
+      const btnWakeup = document.getElementById('btnForceWakeup');
+      if (btnWakeup) {
+        btnWakeup.addEventListener('click', async () => {
+          if (!bmsState.connected) {
+            showToast('Chưa kết nối Bluetooth tới mạch.', 'info');
+            return;
+          }
+          showToast('Đang ép gửi lại cả 2 lệnh 0x97 và 0x96...', 'info');
+          await writeJkCommand(0x97);
+          setTimeout(async () => {
+            await writeJkCommand(0x96);
+          }, 400);
+        });
+      }
+
       document.getElementById('btnRefreshCmd').addEventListener('click', async () => {
-        if (!bmsState.connected || !activeWriteChar) {
+        if (!bmsState.connected || writeCharacteristics.length === 0) {
           showToast('Hãy kết nối Bluetooth tới mạch JK-BMS trước khi làm mới dữ liệu.', 'info');
           return;
         }
