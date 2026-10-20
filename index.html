@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>JK-BMS Universal BLE Web Monitor (3S - 32S)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b1120;
+      color: #f1f5f9;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    .cell-bar-transition {
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+    }
+    .gauge-ring {
+      transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white pb-20 md:pb-8">
+
+  <!-- Toast Notification -->
+  <div id="toastContainer" class="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 pointer-events-none flex flex-col gap-2"></div>
+
+  <!-- Top App Bar -->
+  <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-filter backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-900/40">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base md:text-lg font-bold tracking-tight text-white">JK-BMS Universal Monitor</h1>
+            <span id="protocolBadge" class="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30">AUTO (3S–32S)</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span id="connDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span id="connStatusText">Chưa kết nối — Hỗ trợ mọi hệ pin & dung lượng Ah</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary Action Buttons -->
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <select id="protocolSelect" aria-label="Chọn giao thức JK-BMS" class="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700 focus:outline-none focus:border-emerald-500">
+          <option value="auto">Giao thức: Tự động</option>
+          <option value="JK02_24S">JK02_24S (FW ≤ v10.x)</option>
+          <option value="JK02_32S">JK02_32S (FW ≥ v11.x)</option>
+        </select>
+
+        <button id="btnConnectBle" type="button" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M7 7l10 10-5 5V2l5 5L7 17" />
+          </svg>
+          <span id="btnConnectLabel">Kết nối Bluetooth</span>
+        </button>
+
+        <button id="btnRefreshCmd" type="button" class="px-3 py-2 rounded-xl text-xs md:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          Làm mới
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 pt-4 space-y-4">
+
+    <!-- Navigation Tabs -->
+    <nav class="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-slate-900 border border-slate-800">
+      <button type="button" data-tab="tab-dashboard" class="nav-tab-btn py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 transition">
+        Tổng quan & Cell
+      </button>
+      <button type="button" data-tab="tab-device" class="nav-tab-btn py-2 px-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 transition">
+        Tên & Mật khẩu
+      </button>
+      <button type="button" data-tab="tab-settings" class="nav-tab-btn py-2 px-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 transition">
+        Cài đặt Bảo vệ
+      </button>
+      <button type="button" data-tab="tab-guide" class="nav-tab-btn py-2 px-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 transition">
+        Hướng dẫn ĐT
+      </button>
+    </nav>
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: DASHBOARD (TỔNG QUAN, THỜI GIAN SẠC, NĂNG LƯỢNG, CELL)       -->
+    <!-- =================================================================== -->
+    <section id="tab-dashboard" class="tab-panel space-y-4">
+
+      <!-- Quick Identity & Password Strip -->
+      <div class="glass-card rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="px-2.5 py-1.5 rounded-lg bg-slate-800/90 border border-slate-700 font-mono text-xs text-emerald-400">
+            <span id="quickDeviceName">Chưa kết nối</span>
+          </div>
+          <div class="text-xs text-slate-400">
+            Model: <span id="quickModel" class="text-slate-200 font-medium">--</span>
+          </div>
+          <div class="text-xs text-slate-400">
+            Loại pin: <span id="quickBatteryType" class="text-sky-400 font-semibold">Tự động</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <div class="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-1.5">
+            <span class="text-slate-400">PIN BLE:</span>
+            <span id="quickPinBle" class="font-mono font-bold text-amber-400">--</span>
+          </div>
+          <div class="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-1.5">
+            <span class="text-slate-400">MK Cài đặt:</span>
+            <span id="quickSetupPw" class="font-mono font-bold text-rose-400">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estimated Charge / Discharge Time Banner -->
+      <div class="glass-card rounded-2xl p-4 border-l-4 border-l-emerald-500 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-start sm:items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400 font-medium" id="etaTitleLabel">Dự tính Thời gian Sạc / Xả (Theo dung lượng & dòng thực tế)</div>
+            <div class="text-base sm:text-lg font-bold text-white mt-0.5" id="metricEtaPrimary">Chờ dữ liệu dòng sạc/xả từ mạch...</div>
+            <div class="text-xs text-slate-400 mt-0.5" id="metricEtaSub">Kết nối Bluetooth để tính tự động theo dung lượng còn lại và dung lượng thiết kế</div>
+          </div>
+        </div>
+        <div class="flex sm:flex-col items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800 text-right shrink-0">
+          <span class="text-xs text-slate-400">Cần nạp thêm:</span>
+          <span id="metricNeedChargeAh" class="text-sm font-mono font-bold text-emerald-400">-- Ah (-- Wh)</span>
+        </div>
+      </div>
+
+      <!-- Hero Gauge + Primary Pack Metrics -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+        <!-- SOC Gauge Card -->
+        <div class="md:col-span-5 glass-card rounded-2xl p-4 flex flex-col items-center justify-center relative">
+          <div class="relative w-44 h-44 flex items-center justify-center">
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" stroke="#1e293b" stroke-width="10" fill="none" />
+              <circle id="socGaugeCircle" class="gauge-ring" cx="60" cy="60" r="50" stroke="#10b981" stroke-width="10" stroke-linecap="round" fill="none" stroke-dasharray="314.16" stroke-dashoffset="314.16" />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span class="text-xs uppercase tracking-wider text-slate-400 font-medium">Dung lượng SOC</span>
+              <div class="text-4xl font-extrabold text-white tracking-tight mt-0.5">
+                <span id="metricSoc">--</span><span class="text-xl text-emerald-400">%</span>
+              </div>
+              <span id="metricRemainAh" class="text-xs font-mono text-slate-300 mt-1">-- / -- Ah</span>
+            </div>
+          </div>
+
+          <!-- MOSFET & Hardware Status Pills -->
+          <div class="grid grid-cols-3 gap-2 w-full mt-3 pt-3 border-t border-slate-800/80 text-center">
+            <div class="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+              <div class="text-[11px] text-slate-400">MOS Sạc</div>
+              <div id="pillChargeMos" class="text-xs font-bold text-slate-400 mt-0.5">--</div>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+              <div class="text-[11px] text-slate-400">MOS Xả</div>
+              <div id="pillDischargeMos" class="text-xs font-bold text-slate-400 mt-0.5">--</div>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Cân bằng</div>
+              <div id="pillBalanceState" class="text-xs font-bold text-slate-400 mt-0.5">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6 Core Metric Cards -->
+        <div class="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 font-medium">Tổng điện áp</span>
+              <span id="badgeCellCount" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">--S</span>
+            </div>
+            <div class="mt-2">
+              <span id="metricTotalVolt" class="text-2xl font-bold font-mono text-white">--</span>
+              <span class="text-xs text-slate-400 font-mono">V</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              TB Cell: <span id="metricAvgCell" class="font-mono text-slate-200">-- V</span>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 font-medium">Dòng điện</span>
+              <span id="badgeCurrentState" class="text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Chờ</span>
+            </div>
+            <div class="mt-2">
+              <span id="metricCurrent" class="text-2xl font-bold font-mono text-amber-400">--</span>
+              <span class="text-xs text-slate-400 font-mono">A</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              Dòng CB: <span id="metricBalCurrent" class="font-mono text-slate-200">-- A</span>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 font-medium">Công suất tức thời</span>
+              <span class="text-[11px] font-mono text-slate-400">P = U×I</span>
+            </div>
+            <div class="mt-2">
+              <span id="metricPower" class="text-2xl font-bold font-mono text-sky-400">--</span>
+              <span class="text-xs text-slate-400 font-mono">W</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              Năng lượng: <span id="metricEnergyWh" class="font-mono text-slate-200">-- Wh</span>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 font-medium">Độ lệch áp (Delta)</span>
+              <span class="text-[11px] font-mono text-emerald-400">mV</span>
+            </div>
+            <div class="mt-2">
+              <span id="metricDeltaMv" class="text-2xl font-bold font-mono text-emerald-400">--</span>
+              <span class="text-xs text-slate-400 font-mono">mV</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">
+              (<span id="metricDeltaV" class="font-mono text-slate-300">-- V</span>)
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 font-medium">Cao / Thấp nhất</span>
+              <span class="text-[11px] font-mono text-slate-400">Min/Max</span>
+            </div>
+            <div class="mt-1.5 space-y-1 font-mono text-xs">
+              <div class="flex justify-between">
+                <span class="text-emerald-400">Max #<span id="metricMaxCellNum">--</span>:</span>
+                <span id="metricMaxCellV" class="text-white font-semibold">-- V</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-amber-400">Min #<span id="metricMinCellNum">--</span>:</span>
+                <span id="metricMinCellV" class="text-white font-semibold">-- V</span>
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">SOH: <span id="metricSoh" class="font-mono text-slate-200">--%</span></div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 font-medium">Nhiệt độ mạch & Pin</span>
+              <span class="text-[11px] text-slate-400">°C</span>
+            </div>
+            <div class="mt-1.5 space-y-1 font-mono text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">MOSFET:</span>
+                <span id="metricTempMos" class="text-rose-400 font-semibold">-- °C</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">T1 / T2:</span>
+                <span id="metricTempT1T2" class="text-sky-300 font-semibold">--° / --°</span>
+              </div>
+            </div>
+            <div id="metricErrorSummary" class="text-[11px] text-slate-400 mt-1 truncate">Chưa có dữ liệu lỗi</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extended Operational Metrics Strip (Energy, Cycles, Wire Resistance, Heating, Precharge, Runtime) -->
+      <div class="glass-card rounded-2xl p-4">
+        <h2 class="text-xs sm:text-sm font-bold text-slate-200 uppercase tracking-wider mb-3">Thông số Vận hành Mở rộng (Frame 0x02)</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Tổng Năng lượng Thiết kế</div>
+            <div id="extTotalEnergy" class="text-sm font-mono font-bold text-white mt-1">-- Wh (-- kWh)</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Số Chu kỳ / Tổng Ah Tích lũy</div>
+            <div id="metricCycles" class="text-sm font-mono font-bold text-sky-400 mt-1">-- lần | -- Ah</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Tổng / TB Nội trở Dây</div>
+            <div id="extWireRes" class="text-sm font-mono font-bold text-emerald-400 mt-1">-- mΩ (TB: -- mΩ)</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Thời gian Chạy (Runtime)</div>
+            <div id="extRuntime" class="text-sm font-mono font-bold text-white mt-1">--</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Trạng thái Sưởi (Heating)</div>
+            <div id="extHeating" class="text-sm font-mono font-bold text-slate-300 mt-1">-- (0.00 A)</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Sạc mồi (Precharge)</div>
+            <div id="extPrecharge" class="text-sm font-mono font-bold text-slate-300 mt-1">--</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Cắm sạc / Khẩn cấp</div>
+            <div id="extChargerEmergency" class="text-sm font-mono font-bold text-slate-300 mt-1">Sạc: -- | Khẩn: 0s</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800">
+            <div class="text-slate-400">Nhiệt độ phụ (T3 / T4 / T5)</div>
+            <div id="extExtraTemps" class="text-sm font-mono font-bold text-slate-300 mt-1">-- / -- / --</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cell Voltages Grid -->
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-white">Điện áp & Nội trở từng Cell (Tự động 3S – 32S)</h2>
+            <p class="text-xs text-slate-400">Hiển thị chính xác số cell thực tế đang hoạt động trên mạch JK-BMS</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="inline-flex items-center gap-1 text-emerald-400 font-medium">
+              <span class="w-2.5 h-2.5 rounded-sm bg-emerald-400"></span> Cao nhất (MAX)
+            </span>
+            <span class="inline-flex items-center gap-1 text-amber-400 font-medium">
+              <span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span> Thấp nhất (MIN)
+            </span>
+          </div>
+        </div>
+
+        <div id="cellsGridContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+          <!-- Populated dynamically by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: DEVICE INFO & PASSWORDS (FRAME 0x03)                         -->
+    <!-- =================================================================== -->
+    <section id="tab-device" class="tab-panel hidden space-y-4">
+      <div class="glass-card rounded-2xl p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white">Thông tin Định danh & Mật khẩu Mạch (Frame 0x03)</h2>
+            <p class="text-xs text-slate-400">Đọc trực tiếp từ bộ nhớ cấu hình của mạch JK-BMS qua lệnh 0x97</p>
+          </div>
+          <button id="btnRequestDeviceInfo" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition">
+            Đọc lại lệnh 0x97
+          </button>
+        </div>
+
+        <!-- Highlighted Password Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div class="p-4 rounded-2xl bg-slate-900/90 border border-amber-500/30 flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">Mật khẩu kết nối Bluetooth (PIN)</div>
+              <div id="devPinBle" class="text-2xl font-mono font-extrabold text-amber-400 mt-1">--</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Byte 62–77 (device_passcode)</div>
+            </div>
+            <button type="button" data-copy-target="devPinBle" class="btn-copy px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700">
+              Sao chép
+            </button>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-900/90 border border-rose-500/30 flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">Mật khẩu Cài đặt (Setup Password)</div>
+              <div id="devSetupPw" class="text-2xl font-mono font-extrabold text-rose-400 mt-1">--</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Byte 118–133 (setup_passcode)</div>
+            </div>
+            <button type="button" data-copy-target="devSetupPw" class="btn-copy px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700">
+              Sao chép
+            </button>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-900/90 border border-sky-500/30 flex items-center justify-between">
+            <div>
+              <div class="text-xs text-slate-400">Mã PIN phụ (Passcode)</div>
+              <div id="devSubPasscode" class="text-2xl font-mono font-extrabold text-sky-400 mt-1">--</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Byte 97–101</div>
+            </div>
+            <button type="button" data-copy-target="devSubPasscode" class="btn-copy px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700">
+              Sao chép
+            </button>
+          </div>
+        </div>
+
+        <!-- Detailed Metadata List -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Tên Bluetooth (Device Name):</span>
+            <span id="devName" class="font-mono font-semibold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Mã mạch (Vendor / Model ID):</span>
+            <span id="devVendor" class="font-mono font-semibold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Phiên bản Phần cứng (HW):</span>
+            <span id="devHwVer" class="font-mono font-semibold text-emerald-400">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Phiên bản Phần mềm (SW):</span>
+            <span id="devSwVer" class="font-mono font-semibold text-emerald-400">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Số Serial (Serial Number):</span>
+            <span id="devSerial" class="font-mono font-semibold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Ngày sản xuất:</span>
+            <span id="devMfgDate" class="font-mono font-semibold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Số lần bật nguồn:</span>
+            <span id="devPowerOnCount" class="font-mono font-semibold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Thời gian hoạt động (Uptime):</span>
+            <span id="devUptime" class="font-mono font-semibold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between sm:col-span-2">
+            <span class="text-slate-400">Dữ liệu người dùng (User Data):</span>
+            <span id="devUserData" class="font-mono font-semibold text-slate-200">--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: PROTECTION SETTINGS (FRAME 0x01) & HEX TOOL                  -->
+    <!-- =================================================================== -->
+    <section id="tab-settings" class="tab-panel hidden space-y-4">
+      <div class="glass-card rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white">Toàn bộ Thông số Cài đặt Bảo vệ (Frame 0x01)</h2>
+            <p class="text-xs text-slate-400">Đọc tự động cho mọi mức dung lượng (Ah) và số lượng cell (S)</p>
+          </div>
+          <button id="btnExportJson" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+            Sao chép JSON toàn bộ thông số
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Số Cell cài đặt:</span>
+            <span id="setCellCount" class="font-mono font-bold text-emerald-400">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Dung lượng thiết kế:</span>
+            <span id="setNominalCap" class="font-mono font-bold text-white">-- Ah</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Áp ngắt nguồn (Power Off):</span>
+            <span id="setPowerOffV" class="font-mono font-bold text-rose-400">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Bảo vệ quá áp Cell (OVP):</span>
+            <span id="setCellOvp" class="font-mono font-bold text-amber-400">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Phục hồi quá áp (OVPR):</span>
+            <span id="setCellOvpr" class="font-mono font-bold text-slate-200">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Bảo vệ thấp áp Cell (UVP):</span>
+            <span id="setCellUvp" class="font-mono font-bold text-amber-400">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Phục hồi thấp áp (UVPR):</span>
+            <span id="setCellUvpr" class="font-mono font-bold text-slate-200">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Áp ngủ thông minh (Sleep):</span>
+            <span id="setSmartSleepV" class="font-mono font-bold text-slate-200">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Áp SOC 100% / SOC 0%:</span>
+            <span id="setSoc100And0" class="font-mono font-bold text-slate-200">-- / -- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Dòng sạc tối đa:</span>
+            <span id="setMaxChargeA" class="font-mono font-bold text-emerald-400">-- A</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Trễ / Phục hồi quá dòng sạc:</span>
+            <span id="setChargeOcpDelay" class="font-mono font-bold text-slate-200">--s / --s</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Dòng xả tối đa:</span>
+            <span id="setMaxDischargeA" class="font-mono font-bold text-sky-400">-- A</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Trễ / Phục hồi quá dòng xả:</span>
+            <span id="setDischargeOcpDelay" class="font-mono font-bold text-slate-200">--s / --s</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Trễ / Phục hồi ngắn mạch (SCP):</span>
+            <span id="setScpTiming" class="font-mono font-bold text-slate-200">-- μs / -- s</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Áp bắt đầu cân bằng:</span>
+            <span id="setStartBalV" class="font-mono font-bold text-white">-- V</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Độ lệch kích hoạt CB:</span>
+            <span id="setBalTrigMv" class="font-mono font-bold text-white">-- mV</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Dòng cân bằng tối đa:</span>
+            <span id="setMaxBalA" class="font-mono font-bold text-white">-- A</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Quá nhiệt Sạc (OTP / Phục hồi):</span>
+            <span id="setChargeOtp" class="font-mono font-bold text-rose-300">--°C / --°C</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Thấp nhiệt Sạc (UTP / Phục hồi):</span>
+            <span id="setChargeUtp" class="font-mono font-bold text-sky-300">--°C / --°C</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Quá nhiệt Xả (OTP / Phục hồi):</span>
+            <span id="setDischargeOtp" class="font-mono font-bold text-rose-300">--°C / --°C</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between">
+            <span class="text-slate-400">Quá nhiệt MOS (OTP / Phục hồi):</span>
+            <span id="setMosOtp" class="font-mono font-bold text-rose-400">--°C / --°C</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw Hex Frame Decoder Box -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5">
+        <h3 class="text-sm font-bold text-white mb-1">Công cụ Giải mã Gói tin Hex (55 AA EB 90...)</h3>
+        <p class="text-xs text-slate-400 mb-3">Dán bất kỳ khung dữ liệu 300-byte dạng Hex nào từ cổng Serial/BLE để kiểm tra giải mã:</p>
+        <textarea id="hexInputBox" rows="3" placeholder="Ví dụ: 55 AA EB 90 03 9F 4A 4B 2D 42 32 41..." class="w-full rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500"></textarea>
+        <div class="flex flex-wrap gap-2 mt-2.5">
+          <button id="btnDecodeHex" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">
+            Giải mã gói Hex
+          </button>
+          <button id="btnLoadSampleHex" type="button" class="px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            Chèn gói Hex mẫu (JK-B2A24S15P)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 4: MOBILE USAGE GUIDE                                           -->
+    <!-- =================================================================== -->
+    <section id="tab-guide" class="tab-panel hidden space-y-4">
+      <div class="glass-card rounded-2xl p-4 sm:p-5 space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-white">Cách sử dụng Website này trực tiếp trên Điện thoại</h2>
+          <p class="text-xs text-slate-400 mt-1">Ứng dụng web này dùng chuẩn <strong>Web Bluetooth API</strong> để kết nối thẳng vào mọi dòng mạch JK-BMS (từ 3S đến 32S, mọi dung lượng Ah) mà không cần máy chủ trung gian.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
+          <div class="p-4 rounded-2xl bg-slate-900/80 border border-emerald-500/30 space-y-2">
+            <div class="font-bold text-emerald-400 text-sm">1. Trên điện thoại Android (Chrome / Edge / Opera)</div>
+            <ul class="list-disc list-inside text-slate-300 space-y-1.5">
+              <li>Đưa file <code>jk_bms_web_monitor.html</code> lên GitHub Pages / Netlify (HTTPS) hoặc mở qua địa chỉ nội bộ.</li>
+              <li>Mở bằng trình duyệt <strong>Google Chrome</strong> trên điện thoại, bật Bluetooth và Vị trí (Location).</li>
+              <li>Đóng hẳn app JK-BMS gốc trên điện thoại (vì mạch JK chỉ nhận 1 kết nối BLE tại một thời điểm).</li>
+              <li>Nhấn nút <strong>"Kết nối Bluetooth"</strong> ở góc trên màn hình, chọn mạch JK-BMS để đọc trực tiếp.</li>
+            </ul>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-900/80 border border-sky-500/30 space-y-2">
+            <div class="font-bold text-sky-400 text-sm">2. Trên iPhone / iPad (iOS)</div>
+            <ul class="list-disc list-inside text-slate-300 space-y-1.5">
+              <li>Trình duyệt Safari mặc định của Apple không mở quyền Web Bluetooth.</li>
+              <li>Hãy tải trình duyệt miễn phí <strong>Bluefy – Web BLE Browser</strong> trên App Store.</li>
+              <li>Mở trang web này bên trong ứng dụng <strong>Bluefy</strong> và nhấn <strong>"Kết nối Bluetooth"</strong> để đọc trực tiếp tên mạch, mật khẩu, thời gian sạc dự kiến và điện áp từng cell.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // TOAST NOTIFICATION HELPER
+    // =========================================================================
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const colorMap = {
+        success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200',
+        error: 'bg-rose-950/95 border-rose-500/50 text-rose-200',
+        info: 'bg-slate-900/95 border-slate-700 text-slate-200'
+      };
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-xl text-xs font-medium transition-all duration-300 ${colorMap[type] || colorMap.info}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3600);
+    }
+
+    function copyTextSafe(text, label) {
+      if (!text || text === '--') {
+        showToast('Chưa có dữ liệu để sao chép.', 'info');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Đã sao chép ${label}: ${text}`, 'success');
+        }).catch(() => fallbackCopy(text, label));
+      } else {
+        fallbackCopy(text, label);
+      }
+    }
+
+    function fallbackCopy(text, label) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(`Đã sao chép ${label}`, 'success');
+      } catch (e) {
+        showToast('Không thể sao chép tự động', 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    // =========================================================================
+    // TRẠNG THÁI CHUNG CHO MỌI HỆ PIN & DUNG LƯỢNG (KHÔNG GIẢ LẬP ĐỘNG)
+    // =========================================================================
+    const JK_SERVICE_UUID = 0xFFE0;
+
+    const ERROR_LABELS = {
+      0: 'Nội trở dây cân bằng lớn',
+      1: 'Quá nhiệt MOSFET',
+      2: 'Số cell lệch cài đặt',
+      4: 'Pin đã sạc đầy',
+      5: 'Quá áp tổng',
+      6: 'Quá dòng sạc',
+      7: 'Ngắn mạch sạc',
+      8: 'Quá nhiệt khi sạc',
+      9: 'Nhiệt độ thấp khi sạc',
+      10: 'Lỗi giao tiếp chip phụ',
+      11: 'Thấp áp Cell (UVP)',
+      12: 'Thấp áp tổng',
+      13: 'Quá dòng xả',
+      14: 'Ngắn mạch xả',
+      15: 'Quá nhiệt khi xả',
+      16: 'Lỗi MOSFET sạc',
+      17: 'Lỗi MOSFET xả',
+      18: 'Mất kết nối GPS',
+      19: 'Cần đổi mật khẩu',
+      20: 'Mở mạch xả thất bại',
+      21: 'Quá nhiệt pin',
+      22: 'Lỗi cảm biến nhiệt độ',
+      23: 'Lỗi module PCL'
+    };
+
+    const bmsState = {
+      connected: false,
+      hasDeviceInfo: false,
+      hasSettingsInfo: false,
+      hasCellInfo: false,
+      protocolMode: 'auto',
+      detectedProtocol: 'JK02_24S',
+      device: {
+        vendorId: '',
+        hwVersion: '',
+        swVersion: '',
+        uptimeSec: 0,
+        powerOnCount: 0,
+        deviceName: '',
+        devicePasscode: '',
+        mfgDate: '',
+        serialNumber: '',
+        passcode: '',
+        userData: '',
+        setupPasscode: ''
+      },
+      settings: {
+        cellCount: 0,
+        nominalCapAh: 0,
+        smartSleepV: 0,
+        powerOffV: 0,
+        cellOvpV: 0,
+        cellOvprV: 0,
+        cellUvpV: 0,
+        cellUvprV: 0,
+        soc100V: 0,
+        soc0V: 0,
+        maxChargeA: 0,
+        chargeOcpDelayS: 0,
+        chargeOcpRecS: 0,
+        maxDischargeA: 0,
+        dischargeOcpDelayS: 0,
+        dischargeOcpRecS: 0,
+        scpDelayUs: 0,
+        scpRecS: 0,
+        startBalanceV: 0,
+        balanceTrigMv: 0,
+        maxBalanceA: 0,
+        chargeOtpC: 0,
+        chargeOtpRecC: 0,
+        dischargeOtpC: 0,
+        dischargeOtpRecC: 0,
+        chargeUtpC: 0,
+        chargeUtpRecC: 0,
+        mosOtpC: 0,
+        mosOtpRecC: 0,
+        chargeSwitch: false,
+        dischargeSwitch: false,
+        balancerSwitch: false
+      },
+      live: {
+        cellVoltages: [],
+        cellResistances: [],
+        wireWarningBitmask: 0,
+        totalVoltageV: 0,
+        currentA: 0,
+        powerW: 0,
+        balanceCurrentA: 0,
+        balancingAction: 0,
+        socPercent: 0,
+        sohPercent: 0,
+        remainCapAh: 0,
+        nominalCapAh: 0,
+        cycles: 0,
+        totalCycleCapAh: 0,
+        mosTempC: 0,
+        temp1C: 0,
+        temp2C: 0,
+        temp3C: null,
+        temp4C: null,
+        temp5C: null,
+        chargeMosOn: false,
+        dischargeMosOn: false,
+        prechargeOn: false,
+        heatingOn: false,
+        heatingCurrentA: 0,
+        chargerPlugged: false,
+        emergencyCountdownS: 0,
+        batteryTypeCode: null,
+        runtimeSec: 0,
+        errorsBitmask: 0
+      }
+    };
+
+    function getEffectiveProtocol() {
+      if (bmsState.protocolMode === 'JK02_24S' || bmsState.protocolMode === 'JK02_32S') {
+        return bmsState.protocolMode;
+      }
+      return bmsState.detectedProtocol;
+    }
+
+    function calcCrc8(bytesArr, len = 299) {
+      let sum = 0;
+      for (let i = 0; i < len; i++) {
+        sum = (sum + bytesArr[i]) & 0xFF;
+      }
+      return sum;
+    }
+
+    function buildCommandFrame(cmdByte, counter = 1) {
+      const frame = new Uint8Array(20);
+      frame[0] = 0xAA;
+      frame[1] = 0x55;
+      frame[2] = 0x90;
+      frame[3] = 0xEB;
+      frame[4] = cmdByte & 0xFF;
+      frame[5] = 0x00;
+      frame[16] = counter & 0xFF;
+      frame[19] = calcCrc8(frame, 19);
+      return frame;
+    }
+
+    function readCString(bytes, start, maxLen) {
+      const sub = [];
+      for (let i = start; i < start + maxLen && i < bytes.length; i++) {
+        if (bytes[i] === 0x00) break;
+        sub.push(bytes[i]);
+      }
+      return new TextDecoder('utf-8').decode(new Uint8Array(sub)).trim();
+    }
+
+    function formatUptime(seconds) {
+      const s = Math.max(0, Math.floor(seconds));
+      const days = Math.floor(s / 86400);
+      const rem1 = s % 86400;
+      const hrs = String(Math.floor(rem1 / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((rem1 % 3600) / 60)).padStart(2, '0');
+      const secs = String(rem1 % 60).padStart(2, '0');
+      return `${days} ngày ${hrs}:${mins}:${secs}`;
+    }
+
+    function formatHoursToReadable(hoursFloat) {
+      if (!isFinite(hoursFloat) || hoursFloat <= 0) return '0 phút';
+      const totalMins = Math.round(hoursFloat * 60);
+      if (totalMins < 1) return '< 1 phút';
+      const hrs = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      if (hrs > 0) {
+        return `${hrs} giờ ${String(mins).padStart(2, '0')} phút`;
+      }
+      return `${mins} phút`;
+    }
+
+    function decodeJkFrame(rawBytes) {
+      if (rawBytes.length < 300) return false;
+      if (rawBytes[0] !== 0x55 || rawBytes[1] !== 0xAA || rawBytes[2] !== 0xEB || rawBytes[3] !== 0x90) {
+        return false;
+      }
+      const crc = calcCrc8(rawBytes, 299);
+      if (crc !== rawBytes[299]) {
+        return false;
+      }
+
+      const dv = new DataView(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
+      const frameType = rawBytes[4];
+
+      if (frameType === 0x03) {
+        // Frame 0x03: Device Info & Passwords
+        bmsState.device.vendorId = readCString(rawBytes, 6, 16) || 'N/A';
+        bmsState.device.hwVersion = readCString(rawBytes, 22, 8) || 'N/A';
+        bmsState.device.swVersion = readCString(rawBytes, 30, 8) || 'N/A';
+        bmsState.device.uptimeSec = dv.getUint32(38, true);
+        bmsState.device.powerOnCount = dv.getUint32(42, true);
+        bmsState.device.deviceName = readCString(rawBytes, 46, 16) || 'N/A';
+        bmsState.device.devicePasscode = readCString(rawBytes, 62, 16) || 'N/A';
+
+        const mfgRaw = readCString(rawBytes, 78, 8);
+        if (/^\d{6}$/.test(mfgRaw)) {
+          bmsState.device.mfgDate = `20${mfgRaw.slice(0, 2)}-${mfgRaw.slice(2, 4)}-${mfgRaw.slice(4, 6)}`;
+        } else {
+          bmsState.device.mfgDate = mfgRaw || 'N/A';
+        }
+        bmsState.device.serialNumber = readCString(rawBytes, 86, 11) || 'N/A';
+        bmsState.device.passcode = readCString(rawBytes, 97, 5) || 'N/A';
+        bmsState.device.userData = readCString(rawBytes, 102, 16) || 'N/A';
+        bmsState.device.setupPasscode = readCString(rawBytes, 118, 16) || 'N/A';
+
+        const majorMatch = bmsState.device.swVersion.match(/^(\d+)/);
+        if (majorMatch) {
+          bmsState.detectedProtocol = parseInt(majorMatch[1], 10) >= 11 ? 'JK02_32S' : 'JK02_24S';
+        }
+        bmsState.hasDeviceInfo = true;
+        renderAll();
+        return true;
+      }
+
+      if (frameType === 0x01) {
+        // Frame 0x01: Protection Settings
+        bmsState.settings.smartSleepV = dv.getUint32(6, true) * 0.001;
+        bmsState.settings.cellUvpV = dv.getUint32(10, true) * 0.001;
+        bmsState.settings.cellUvprV = dv.getUint32(14, true) * 0.001;
+        bmsState.settings.cellOvpV = dv.getUint32(18, true) * 0.001;
+        bmsState.settings.cellOvprV = dv.getUint32(22, true) * 0.001;
+        bmsState.settings.balanceTrigMv = Math.round(dv.getUint32(26, true));
+        bmsState.settings.soc100V = dv.getUint32(30, true) * 0.001;
+        bmsState.settings.soc0V = dv.getUint32(34, true) * 0.001;
+        bmsState.settings.powerOffV = dv.getUint32(46, true) * 0.001;
+        bmsState.settings.maxChargeA = dv.getUint32(50, true) * 0.001;
+        bmsState.settings.chargeOcpDelayS = dv.getUint32(54, true);
+        bmsState.settings.chargeOcpRecS = dv.getUint32(58, true);
+        bmsState.settings.maxDischargeA = dv.getUint32(62, true) * 0.001;
+        bmsState.settings.dischargeOcpDelayS = dv.getUint32(66, true);
+        bmsState.settings.dischargeOcpRecS = dv.getUint32(70, true);
+        bmsState.settings.scpRecS = dv.getUint32(74, true);
+        bmsState.settings.maxBalanceA = dv.getUint32(78, true) * 0.001;
+        bmsState.settings.chargeOtpC = dv.getInt32(82, true) * 0.1;
+        bmsState.settings.chargeOtpRecC = dv.getInt32(86, true) * 0.1;
+        bmsState.settings.dischargeOtpC = dv.getInt32(90, true) * 0.1;
+        bmsState.settings.dischargeOtpRecC = dv.getInt32(94, true) * 0.1;
+        bmsState.settings.chargeUtpC = dv.getInt32(98, true) * 0.1;
+        bmsState.settings.chargeUtpRecC = dv.getInt32(102, true) * 0.1;
+        bmsState.settings.mosOtpC = dv.getInt32(106, true) * 0.1;
+        bmsState.settings.mosOtpRecC = dv.getInt32(110, true) * 0.1;
+        bmsState.settings.cellCount = rawBytes[114];
+        bmsState.settings.chargeSwitch = Boolean(rawBytes[118]);
+        bmsState.settings.dischargeSwitch = Boolean(rawBytes[122]);
+        bmsState.settings.balancerSwitch = Boolean(rawBytes[126]);
+        bmsState.settings.nominalCapAh = dv.getUint32(130, true) * 0.001;
+        bmsState.settings.scpDelayUs = dv.getUint32(134, true);
+        bmsState.settings.startBalanceV = dv.getUint32(138, true) * 0.001;
+        bmsState.hasSettingsInfo = true;
+        renderAll();
+        return true;
+      }
+
+      if (frameType === 0x02) {
+        // Frame 0x02: Real-time Cell & Pack Data
+        const proto = getEffectiveProtocol();
+        const is32s = proto === 'JK02_32S';
+        const offset1 = is32s ? 16 : 0;
+        const offset2 = is32s ? 32 : 0;
+        const maxCells = is32s ? 32 : 24;
+
+        const volts = [];
+        const res = [];
+        for (let i = 0; i < maxCells; i++) {
+          const v = dv.getUint16(6 + i * 2, true) * 0.001;
+          const r = dv.getUint16(64 + offset1 + i * 2, true) * 0.001;
+          if (v > 0.05) {
+            volts.push(v);
+            res.push(r);
+          }
+        }
+        bmsState.live.cellVoltages = volts;
+        bmsState.live.cellResistances = res;
+        bmsState.live.wireWarningBitmask = dv.getUint32(114 + offset2, true);
+        bmsState.live.totalVoltageV = dv.getUint32(118 + offset2, true) * 0.001;
+        bmsState.live.currentA = dv.getInt32(126 + offset2, true) * 0.001;
+        bmsState.live.powerW = bmsState.live.totalVoltageV * bmsState.live.currentA;
+        bmsState.live.temp1C = dv.getInt16(130 + offset2, true) * 0.1;
+        bmsState.live.temp2C = dv.getInt16(132 + offset2, true) * 0.1;
+
+        if (is32s) {
+          bmsState.live.mosTempC = dv.getInt16(112 + offset2, true) * 0.1;
+          bmsState.live.errorsBitmask = dv.getUint32(134 + offset2, true);
+          bmsState.live.temp5C = dv.getInt16(222 + offset2, true) * 0.1;
+          bmsState.live.temp4C = dv.getInt16(224 + offset2, true) * 0.1;
+          bmsState.live.temp3C = dv.getInt16(226 + offset2, true) * 0.1;
+          bmsState.live.batteryTypeCode = rawBytes[243 + offset2];
+        } else {
+          bmsState.live.mosTempC = dv.getInt16(134 + offset2, true) * 0.1;
+          bmsState.live.errorsBitmask = dv.getUint16(136 + offset2, true);
+          bmsState.live.temp3C = null;
+          bmsState.live.temp4C = null;
+          bmsState.live.temp5C = null;
+        }
+
+        bmsState.live.balanceCurrentA = dv.getInt16(138 + offset2, true) * 0.001;
+        bmsState.live.balancingAction = rawBytes[140 + offset2];
+        bmsState.live.socPercent = rawBytes[141 + offset2];
+        bmsState.live.remainCapAh = dv.getUint32(142 + offset2, true) * 0.001;
+        bmsState.live.nominalCapAh = dv.getUint32(146 + offset2, true) * 0.001;
+        bmsState.live.cycles = dv.getUint32(150 + offset2, true);
+        bmsState.live.totalCycleCapAh = dv.getUint32(154 + offset2, true) * 0.001;
+        bmsState.live.sohPercent = rawBytes[158 + offset2];
+        bmsState.live.runtimeSec = dv.getUint32(162 + offset2, true);
+        bmsState.device.uptimeSec = bmsState.live.runtimeSec;
+
+        bmsState.live.chargeMosOn = Boolean(rawBytes[166 + offset2]);
+        bmsState.live.dischargeMosOn = Boolean(rawBytes[167 + offset2]);
+        bmsState.live.prechargeOn = Boolean(rawBytes[168 + offset2]);
+        bmsState.live.heatingOn = Boolean(rawBytes[183 + offset2]);
+        bmsState.live.emergencyCountdownS = dv.getUint16(186 + offset2, true);
+        bmsState.live.heatingCurrentA = dv.getInt16(204 + offset2, true) * 0.001;
+        bmsState.live.chargerPlugged = Boolean(rawBytes[213 + offset2]);
+
+        bmsState.hasCellInfo = true;
+        renderAll();
+        return true;
+      }
+
+      return false;
+    }
+
+    // =========================================================================
+    // KẾT NỐI WEB BLUETOOTH TRỰC TIẾP TRÊN ĐIỆN THOẠI / MÁY TÍNH
+    // =========================================================================
+    let bleDevice = null;
+    let activeWriteChar = null;
+    let bleRxBuffer = [];
+    let cmdCounter = 1;
+
+    function feedBleBytes(uint8Chunk) {
+      if (bleRxBuffer.length > 320) {
+        bleRxBuffer = [];
+      }
+      if (
+        uint8Chunk.length >= 4 &&
+        uint8Chunk[0] === 0x55 &&
+        uint8Chunk[1] === 0xAA &&
+        uint8Chunk[2] === 0xEB &&
+        uint8Chunk[3] === 0x90
+      ) {
+        bleRxBuffer = [];
+      }
+      for (let i = 0; i < uint8Chunk.length; i++) {
+        bleRxBuffer.push(uint8Chunk[i]);
+      }
+      if (bleRxBuffer.length >= 300) {
+        const frame = new Uint8Array(bleRxBuffer.slice(0, 300));
+        bleRxBuffer = [];
+        decodeJkFrame(frame);
+      }
+    }
+
+    async function writeJkCommand(cmdByte) {
+      if (!activeWriteChar) return;
+      cmdCounter = (cmdCounter + 1) & 0xFF;
+      const frame = buildCommandFrame(cmdByte, cmdCounter);
+      if (activeWriteChar.properties.writeWithoutResponse && activeWriteChar.writeValueWithoutResponse) {
+        await activeWriteChar.writeValueWithoutResponse(frame);
+      } else {
+        await activeWriteChar.writeValue(frame);
+      }
+    }
+
+    async function connectWebBluetooth() {
+      if (!navigator.bluetooth) {
+        showToast('Trình duyệt hiện tại chưa bật Web Bluetooth. Hãy mở bằng Chrome (Android/PC) hoặc Bluefy (iOS).', 'error');
+        return;
+      }
+
+      try {
+        showToast('Đang mở hộp thoại chọn mạch JK-BMS...', 'info');
+        bleDevice = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            JK_SERVICE_UUID,
+            '0000ffe0-0000-1000-8000-00805f9b34fb'
+          ]
+        });
+
+        bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+        const server = await bleDevice.gatt.connect();
+        const service = await server.getPrimaryService(JK_SERVICE_UUID);
+        const chars = await service.getCharacteristics();
+
+        let notifyChar = null;
+        let writeChar = null;
+
+        for (const c of chars) {
+          const uuidLow = c.uuid.toLowerCase();
+          if (uuidLow.includes('ffe1') || uuidLow.includes('ffe2')) {
+            if (c.properties.notify && !notifyChar) notifyChar = c;
+            if ((c.properties.writeWithoutResponse || c.properties.write) && !writeChar) writeChar = c;
+          }
+        }
+        if (!notifyChar && chars.length > 0) notifyChar = chars[0];
+        if (!writeChar) writeChar = notifyChar;
+        activeWriteChar = writeChar;
+
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', (ev) => {
+          const val = new Uint8Array(ev.target.value.buffer);
+          feedBleBytes(val);
+        });
+
+        bmsState.connected = true;
+        updateConnectionHeader();
+
+        // Gửi 0x97 (đọc tên, mật khẩu) và 0x96 (đọc cài đặt & điện áp cell)
+        await writeJkCommand(0x97);
+        setTimeout(async () => {
+          try {
+            await writeJkCommand(0x96);
+          } catch (e) {}
+        }, 600);
+
+        showToast(`Đã kết nối tới ${bleDevice.name || 'JK-BMS'}!`, 'success');
+      } catch (err) {
+        showToast(`Không thể kết nối BLE: ${err.message || err}`, 'error');
+      }
+    }
+
+    function onBleDisconnected() {
+      bmsState.connected = false;
+      activeWriteChar = null;
+      updateConnectionHeader();
+      showToast('Đã ngắt kết nối Bluetooth với mạch JK-BMS.', 'info');
+    }
+
+    function updateConnectionHeader() {
+      const dot = document.getElementById('connDot');
+      const statusText = document.getElementById('connStatusText');
+      const btnLabel = document.getElementById('btnConnectLabel');
+
+      if (bmsState.connected) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+        statusText.textContent = `Đang kết nối trực tiếp: ${bleDevice && bleDevice.name ? bleDevice.name : (bmsState.device.deviceName || 'JK-BMS')}`;
+        btnLabel.textContent = 'Ngắt kết nối BLE';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        statusText.textContent = 'Chưa kết nối BLE — Sẵn sàng cho mọi hệ pin (3S–32S, mọi dung lượng Ah)';
+        btnLabel.textContent = 'Kết nối Bluetooth';
+      }
+    }
+
+    // =========================================================================
+    // TÍNH TOÁN THỜI GIAN DỰ TÍNH SẠC ĐẦY / XẢ CẠN & RENDER GIAO DIỆN
+    // =========================================================================
+    function inferBatteryChemistry(avgCellV, ovpV, batteryTypeCode) {
+      if (batteryTypeCode === 0) return 'LiFePO4 (LFP)';
+      if (batteryTypeCode === 1) return 'Li-ion (NCM/NCA)';
+      if (batteryTypeCode === 2) return 'LTO (Lithium Titanate)';
+      if (ovpV > 0) {
+        if (ovpV <= 3.75) return 'LiFePO4 (LFP)';
+        if (ovpV >= 4.05) return 'Li-ion (NCM)';
+      }
+      if (avgCellV > 3.72) return 'Li-ion (NCM)';
+      if (avgCellV > 2.9) return 'LiFePO4 / Li-ion';
+      return 'Tự động';
+    }
+
+    function renderAll() {
+      const d = bmsState.device;
+      const s = bmsState.settings;
+      const c = bmsState.live;
+      const proto = getEffectiveProtocol();
+
+      document.getElementById('protocolBadge').textContent = proto;
+
+      // Thanh nhận diện nhanh
+      document.getElementById('quickDeviceName').textContent = d.deviceName || 'Chưa kết nối';
+      document.getElementById('quickModel').textContent = d.vendorId || '--';
+      document.getElementById('quickPinBle').textContent = d.devicePasscode || '--';
+      document.getElementById('quickSetupPw').textContent = d.setupPasscode || '--';
+
+      // Thống kê điện áp Cell
+      const volts = c.cellVoltages;
+      let minV = 999, maxV = -999, minIdx = 1, maxIdx = 1, sumV = 0;
+      volts.forEach((v, idx) => {
+        sumV += v;
+        if (v < minV) { minV = v; minIdx = idx + 1; }
+        if (v > maxV) { maxV = v; maxIdx = idx + 1; }
+      });
+      const avgV = volts.length ? sumV / volts.length : 0;
+      const deltaV = volts.length ? maxV - minV : 0;
+      const deltaMv = Math.round(deltaV * 1000);
+
+      document.getElementById('quickBatteryType').textContent = inferBatteryChemistry(
+        avgV,
+        s.cellOvpV,
+        c.batteryTypeCode
+      );
+
+      // Tính dung lượng thiết kế hiệu dụng (lấy từ Frame 0x02 hoặc Frame 0x01)
+      const nominalAh = c.nominalCapAh > 0 ? c.nominalCapAh : s.nominalCapAh;
+      const remainAh = c.remainCapAh;
+      const needChargeAh = Math.max(0, nominalAh - remainAh);
+      const packVolt = c.totalVoltageV > 0 ? c.totalVoltageV : sumV;
+      const remainEnergyWh = remainAh * packVolt;
+      const totalEnergyWh = nominalAh * packVolt;
+      const needEnergyWh = needChargeAh * packVolt;
+
+      // Cập nhật Khung Dự tính Thời gian Sạc xong / Xả còn lại
+      const etaPrimary = document.getElementById('metricEtaPrimary');
+      const etaSub = document.getElementById('metricEtaSub');
+      const needChargeEl = document.getElementById('metricNeedChargeAh');
+
+      if (!bmsState.hasCellInfo && volts.length === 0) {
+        etaPrimary.textContent = 'Chưa có dữ liệu từ mạch JK-BMS';
+        etaPrimary.className = 'text-base sm:text-lg font-bold text-slate-300 mt-0.5';
+        etaSub.textContent = 'Nhấn "Kết nối Bluetooth" để đọc dung lượng thực tế và tính thời gian sạc/xả';
+        needChargeEl.textContent = '-- Ah (-- Wh)';
+      } else {
+        needChargeEl.textContent = `${needChargeAh.toFixed(2)} Ah (${Math.round(needEnergyWh)} Wh)`;
+
+        if (c.currentA > 0.05) {
+          // Đang sạc: Tính thời gian sạc đầy (Hours = needChargeAh / currentA)
+          if (needChargeAh <= 0.05 || c.socPercent >= 100) {
+            etaPrimary.textContent = 'Pin đã sạc đầy (100%)';
+            etaPrimary.className = 'text-base sm:text-lg font-bold text-emerald-400 mt-0.5';
+            etaSub.textContent = `Dòng duy trì: +${c.currentA.toFixed(2)} A`;
+          } else {
+            const hoursToFull = needChargeAh / c.currentA;
+            // Cộng thêm ~8% thời gian giảm dòng pha CV ở cuối chu kỳ sạc
+            const hoursWithCv = hoursToFull * 1.08;
+            const finishTime = new Date(Date.now() + hoursWithCv * 3600 * 1000);
+            const finishStr = finishTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+            etaPrimary.textContent = `Dự kiến sạc đầy sau: ~${formatHoursToReadable(hoursWithCv)} (Hoàn tất lúc ~${finishStr})`;
+            etaPrimary.className = 'text-base sm:text-lg font-bold text-emerald-400 mt-0.5';
+            etaSub.textContent = `Đang nạp +${c.currentA.toFixed(2)} A (+${c.powerW.toFixed(0)} W) • Cần nạp thêm ${needChargeAh.toFixed(2)} Ah / ${nominalAh.toFixed(1)} Ah`;
+          }
+        } else if (c.currentA < -0.05) {
+          // Đang xả: Tính thời gian sử dụng còn lại (Hours = remainAh / |currentA|)
+          const dischargeA = Math.abs(c.currentA);
+          const hoursToEmpty = remainAh / dischargeA;
+          const emptyTime = new Date(Date.now() + hoursToEmpty * 3600 * 1000);
+          const emptyStr = emptyTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+          etaPrimary.textContent = `Dự kiến thời gian xả còn lại: ~${formatHoursToReadable(hoursToEmpty)} (Đến ~${emptyStr})`;
+          etaPrimary.className = 'text-base sm:text-lg font-bold text-amber-400 mt-0.5';
+          etaSub.textContent = `Đang xả ${c.currentA.toFixed(2)} A (${Math.abs(c.powerW).toFixed(0)} W) • Còn lại ${remainAh.toFixed(2)} Ah (${Math.round(remainEnergyWh)} Wh)`;
+        } else {
+          // Trạng thái nghỉ (Standby)
+          etaPrimary.textContent = 'Trạng thái Chờ (Không sạc / Không xả)';
+          etaPrimary.className = 'text-base sm:text-lg font-bold text-white mt-0.5';
+          const est5A = needChargeAh > 0 ? formatHoursToReadable((needChargeAh / 5.0) * 1.08) : '0 phút';
+          const est10A = needChargeAh > 0 ? formatHoursToReadable((needChargeAh / 10.0) * 1.08) : '0 phút';
+          etaSub.textContent = `Ước tính nếu cắm sạc: Sạc 5A mất ~${est5A} | Sạc 10A mất ~${est10A}`;
+        }
+      }
+
+      // Vòng tròn SOC
+      const soc = bmsState.hasCellInfo ? Math.max(0, Math.min(100, c.socPercent)) : 0;
+      const circumference = 314.16;
+      const offset = circumference - (soc / 100) * circumference;
+      document.getElementById('socGaugeCircle').style.strokeDashoffset = offset.toFixed(2);
+      document.getElementById('metricSoc').textContent = bmsState.hasCellInfo ? soc : '--';
+      document.getElementById('metricRemainAh').textContent = bmsState.hasCellInfo
+        ? `${remainAh.toFixed(2)} / ${nominalAh.toFixed(2)} Ah`
+        : '-- / -- Ah';
+
+      // Trạng thái MOSFET
+      const chgEl = document.getElementById('pillChargeMos');
+      const dsgEl = document.getElementById('pillDischargeMos');
+      const balEl = document.getElementById('pillBalanceState');
+
+      if (!bmsState.hasCellInfo) {
+        chgEl.textContent = '--';
+        dsgEl.textContent = '--';
+        balEl.textContent = '--';
+      } else {
+        chgEl.textContent = c.chargeMosOn ? 'BẬT (ON)' : 'TẮT (OFF)';
+        chgEl.className = `text-xs font-bold mt-0.5 ${c.chargeMosOn ? 'text-emerald-400' : 'text-rose-400'}`;
+
+        dsgEl.textContent = c.dischargeMosOn ? 'BẬT (ON)' : 'TẮT (OFF)';
+        dsgEl.className = `text-xs font-bold mt-0.5 ${c.dischargeMosOn ? 'text-emerald-400' : 'text-rose-400'}`;
+
+        if (c.balancingAction === 1) {
+          balEl.textContent = 'CB NẠP';
+          balEl.className = 'text-xs font-bold mt-0.5 text-sky-400';
+        } else if (c.balancingAction === 2) {
+          balEl.textContent = 'CB XẢ';
+          balEl.className = 'text-xs font-bold mt-0.5 text-amber-400';
+        } else {
+          balEl.textContent = 'TẮT (IDLE)';
+          balEl.className = 'text-xs font-bold mt-0.5 text-slate-400';
+        }
+      }
+
+      // 6 Thẻ thông số chính
+      document.getElementById('badgeCellCount').textContent = volts.length ? `${volts.length}S` : '--S';
+      document.getElementById('metricTotalVolt').textContent = bmsState.hasCellInfo ? packVolt.toFixed(3) : '--';
+      document.getElementById('metricAvgCell').textContent = volts.length ? `${avgV.toFixed(3)} V` : '-- V';
+
+      const curSign = c.currentA >= 0 ? '+' : '';
+      document.getElementById('metricCurrent').textContent = bmsState.hasCellInfo ? `${curSign}${c.currentA.toFixed(2)}` : '--';
+      const stateBadge = document.getElementById('badgeCurrentState');
+      if (!bmsState.hasCellInfo) {
+        stateBadge.textContent = 'Chờ';
+        stateBadge.className = 'text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400';
+      } else if (c.currentA > 0.05) {
+        stateBadge.textContent = 'Đang sạc';
+        stateBadge.className = 'text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400';
+      } else if (c.currentA < -0.05) {
+        stateBadge.textContent = 'Đang xả';
+        stateBadge.className = 'text-[11px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400';
+      } else {
+        stateBadge.textContent = 'Chờ (Idle)';
+        stateBadge.className = 'text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400';
+      }
+
+      const balSign = c.balanceCurrentA >= 0 ? '+' : '';
+      document.getElementById('metricBalCurrent').textContent = bmsState.hasCellInfo ? `${balSign}${c.balanceCurrentA.toFixed(3)} A` : '-- A';
+      document.getElementById('metricPower').textContent = bmsState.hasCellInfo ? `${c.powerW >= 0 ? '+' : ''}${c.powerW.toFixed(1)}` : '--';
+      document.getElementById('metricEnergyWh').textContent = bmsState.hasCellInfo
+        ? `${Math.round(remainEnergyWh)} / ${Math.round(totalEnergyWh)} Wh`
+        : '-- Wh';
+
+      document.getElementById('metricDeltaMv').textContent = volts.length ? deltaMv : '--';
+      document.getElementById('metricDeltaV').textContent = volts.length ? `${deltaV.toFixed(3)} V` : '-- V';
+      document.getElementById('metricMaxCellNum').textContent = volts.length ? String(maxIdx).padStart(2, '0') : '--';
+      document.getElementById('metricMaxCellV').textContent = volts.length ? `${maxV.toFixed(3)} V` : '-- V';
+      document.getElementById('metricMinCellNum').textContent = volts.length ? String(minIdx).padStart(2, '0') : '--';
+      document.getElementById('metricMinCellV').textContent = volts.length ? `${minV.toFixed(3)} V` : '-- V';
+      document.getElementById('metricSoh').textContent = bmsState.hasCellInfo ? `${c.sohPercent}%` : '--%';
+
+      document.getElementById('metricTempMos').textContent = bmsState.hasCellInfo ? `${c.mosTempC.toFixed(1)} °C` : '-- °C';
+      document.getElementById('metricTempT1T2').textContent = bmsState.hasCellInfo
+        ? `${c.temp1C.toFixed(1)}° / ${c.temp2C.toFixed(1)}°`
+        : '--° / --°';
+
+      const errEl = document.getElementById('metricErrorSummary');
+      if (!bmsState.hasCellInfo) {
+        errEl.textContent = 'Chưa có dữ liệu lỗi';
+        errEl.className = 'text-[11px] text-slate-400 mt-1 truncate';
+      } else if (c.errorsBitmask === 0) {
+        errEl.textContent = '0x0000: Không có lỗi';
+        errEl.className = 'text-[11px] text-emerald-400 mt-1 truncate';
+      } else {
+        const activeErrs = [];
+        Object.keys(ERROR_LABELS).forEach((bit) => {
+          if (c.errorsBitmask & (1 << Number(bit))) activeErrs.push(ERROR_LABELS[bit]);
+        });
+        errEl.textContent = activeErrs.join(', ') || `Mã lỗi 0x${c.errorsBitmask.toString(16)}`;
+        errEl.className = 'text-[11px] text-rose-400 font-semibold mt-1 truncate';
+      }
+
+      // Khung thông số mở rộng (Frame 0x02)
+      const totalResMohm = c.cellResistances.reduce((acc, r) => acc + r * 1000, 0);
+      const avgResMohm = c.cellResistances.length ? totalResMohm / c.cellResistances.length : 0;
+
+      document.getElementById('extTotalEnergy').textContent = bmsState.hasCellInfo
+        ? `${Math.round(totalEnergyWh)} Wh (${(totalEnergyWh / 1000).toFixed(2)} kWh)`
+        : '-- Wh (-- kWh)';
+      document.getElementById('metricCycles').textContent = bmsState.hasCellInfo
+        ? `${c.cycles} lần | ${c.totalCycleCapAh.toFixed(1)} Ah`
+        : '-- lần | -- Ah';
+      document.getElementById('extWireRes').textContent = c.cellResistances.length
+        ? `${Math.round(totalResMohm)} mΩ (TB: ${avgResMohm.toFixed(1)} mΩ)`
+        : '-- mΩ (TB: -- mΩ)';
+      document.getElementById('extRuntime').textContent = bmsState.hasCellInfo
+        ? formatUptime(c.runtimeSec)
+        : '--';
+      document.getElementById('extHeating').textContent = bmsState.hasCellInfo
+        ? `${c.heatingOn ? 'ĐANG SƯỞI' : 'Tắt'} (${c.heatingCurrentA.toFixed(2)} A)`
+        : '-- (0.00 A)';
+      document.getElementById('extPrecharge').textContent = bmsState.hasCellInfo
+        ? (c.prechargeOn ? 'ĐANG BẬT (ON)' : 'Tắt (OFF)')
+        : '--';
+      document.getElementById('extChargerEmergency').textContent = bmsState.hasCellInfo
+        ? `Sạc: ${c.chargerPlugged ? 'Đã cắm' : 'Không'} | Khẩn: ${c.emergencyCountdownS}s`
+        : 'Sạc: -- | Khẩn: 0s';
+      document.getElementById('extExtraTemps').textContent = (c.temp3C !== null)
+        ? `${c.temp3C.toFixed(1)}° / ${c.temp4C.toFixed(1)}° / ${c.temp5C.toFixed(1)}°`
+        : 'Không trang bị (Chỉ T1, T2)';
+
+      // Bảng lưới từng Cell
+      const grid = document.getElementById('cellsGridContainer');
+      grid.innerHTML = '';
+      if (volts.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'col-span-full py-8 text-center text-xs sm:text-sm text-slate-400 border border-dashed border-slate-800 rounded-xl';
+        emptyMsg.textContent = 'Chưa có dữ liệu Cell. Hãy nhấn "Kết nối Bluetooth" tới mạch JK-BMS (hoặc nạp gói Hex thực tế ở tab Cài đặt Bảo vệ để kiểm tra).';
+        grid.appendChild(emptyMsg);
+      } else {
+        const minBarV = s.cellUvpV > 1.5 ? s.cellUvpV : 2.5;
+        const maxBarV = s.cellOvpV > 2.5 ? s.cellOvpV : 4.2;
+        volts.forEach((v, idx) => {
+          const cellNum = idx + 1;
+          const rMohm = c.cellResistances[idx] ? Math.round(c.cellResistances[idx] * 1000) : 0;
+          const wireWarn = (c.wireWarningBitmask & (1 << idx)) !== 0;
+          const isMax = cellNum === maxIdx;
+          const isMin = cellNum === minIdx;
+
+          let borderCls = 'border-slate-800 bg-slate-900/75';
+          let barColor = 'bg-sky-500';
+          let badgeHtml = '';
+
+          if (wireWarn) {
+            borderCls = 'border-rose-500/70 bg-rose-950/30';
+            barColor = 'bg-rose-500';
+            badgeHtml = '<span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-rose-500/20 text-rose-300">LỖI DÂY</span>';
+          } else if (isMax) {
+            borderCls = 'border-emerald-500/60 bg-emerald-950/25';
+            barColor = 'bg-emerald-400';
+            badgeHtml = '<span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500/20 text-emerald-300">MAX</span>';
+          } else if (isMin) {
+            borderCls = 'border-amber-500/60 bg-amber-950/25';
+            barColor = 'bg-amber-400';
+            badgeHtml = '<span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-500/20 text-amber-300">MIN</span>';
+          }
+
+          const pct = Math.max(6, Math.min(100, ((v - minBarV) / Math.max(0.1, maxBarV - minBarV)) * 100));
+          const diffFromMinMv = Math.round((v - minV) * 1000);
+          const card = document.createElement('div');
+          card.className = `p-2.5 rounded-xl border ${borderCls} flex flex-col justify-between`;
+          card.innerHTML = `
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-mono text-slate-400 font-semibold">Cell #${String(cellNum).padStart(2, '0')}</span>
+              ${badgeHtml || `<span class="text-[11px] font-mono text-slate-400">+${diffFromMinMv} mV</span>`}
+            </div>
+            <div class="my-1.5 flex items-baseline justify-between">
+              <span class="text-base font-mono font-bold text-white">${v.toFixed(3)} <span class="text-xs font-normal text-slate-400">V</span></span>
+              <span class="text-[11px] font-mono text-slate-400">${rMohm} mΩ</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full ${barColor} cell-bar-transition" style="width: ${pct.toFixed(1)}%"></div>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
+      // Tab 2: Thông tin thiết bị & mật khẩu
+      document.getElementById('devPinBle').textContent = d.devicePasscode || '--';
+      document.getElementById('devSetupPw').textContent = d.setupPasscode || '--';
+      document.getElementById('devSubPasscode').textContent = d.passcode || '--';
+      document.getElementById('devName').textContent = d.deviceName || '--';
+      document.getElementById('devVendor').textContent = d.vendorId || '--';
+      document.getElementById('devHwVer').textContent = d.hwVersion || '--';
+      document.getElementById('devSwVer').textContent = d.swVersion || '--';
+      document.getElementById('devSerial').textContent = d.serialNumber || '--';
+      document.getElementById('devMfgDate').textContent = d.mfgDate || '--';
+      document.getElementById('devPowerOnCount').textContent = bmsState.hasDeviceInfo ? `${d.powerOnCount} lần` : '--';
+      document.getElementById('devUptime').textContent = (bmsState.hasDeviceInfo || bmsState.hasCellInfo) ? formatUptime(d.uptimeSec) : '--';
+      document.getElementById('devUserData').textContent = d.userData || '--';
+
+      // Tab 3: Cài đặt bảo vệ đầy đủ
+      document.getElementById('setCellCount').textContent = bmsState.hasSettingsInfo ? `${s.cellCount}S` : '--';
+      document.getElementById('setNominalCap').textContent = bmsState.hasSettingsInfo ? `${s.nominalCapAh.toFixed(1)} Ah` : '-- Ah';
+      document.getElementById('setPowerOffV').textContent = bmsState.hasSettingsInfo ? `${s.powerOffV.toFixed(3)} V` : '-- V';
+      document.getElementById('setCellOvp').textContent = bmsState.hasSettingsInfo ? `${s.cellOvpV.toFixed(3)} V` : '-- V';
+      document.getElementById('setCellOvpr').textContent = bmsState.hasSettingsInfo ? `${s.cellOvprV.toFixed(3)} V` : '-- V';
+      document.getElementById('setCellUvp').textContent = bmsState.hasSettingsInfo ? `${s.cellUvpV.toFixed(3)} V` : '-- V';
+      document.getElementById('setCellUvpr').textContent = bmsState.hasSettingsInfo ? `${s.cellUvprV.toFixed(3)} V` : '-- V';
+      document.getElementById('setSmartSleepV').textContent = bmsState.hasSettingsInfo ? `${s.smartSleepV.toFixed(3)} V` : '-- V';
+      document.getElementById('setSoc100And0').textContent = bmsState.hasSettingsInfo
+        ? `${s.soc100V.toFixed(3)} / ${s.soc0V.toFixed(3)} V`
+        : '-- / -- V';
+      document.getElementById('setMaxChargeA').textContent = bmsState.hasSettingsInfo ? `${s.maxChargeA.toFixed(1)} A` : '-- A';
+      document.getElementById('setChargeOcpDelay').textContent = bmsState.hasSettingsInfo
+        ? `${s.chargeOcpDelayS}s / ${s.chargeOcpRecS}s`
+        : '--s / --s';
+      document.getElementById('setMaxDischargeA').textContent = bmsState.hasSettingsInfo ? `${s.maxDischargeA.toFixed(1)} A` : '-- A';
+      document.getElementById('setDischargeOcpDelay').textContent = bmsState.hasSettingsInfo
+        ? `${s.dischargeOcpDelayS}s / ${s.dischargeOcpRecS}s`
+        : '--s / --s';
+      document.getElementById('setScpTiming').textContent = bmsState.hasSettingsInfo
+        ? `${s.scpDelayUs} μs / ${s.scpRecS} s`
+        : '-- μs / -- s';
+      document.getElementById('setStartBalV').textContent = bmsState.hasSettingsInfo ? `${s.startBalanceV.toFixed(3)} V` : '-- V';
+      document.getElementById('setBalTrigMv').textContent = bmsState.hasSettingsInfo ? `${s.balanceTrigMv} mV` : '-- mV';
+      document.getElementById('setMaxBalA').textContent = bmsState.hasSettingsInfo ? `${s.maxBalanceA.toFixed(2)} A` : '-- A';
+      document.getElementById('setChargeOtp').textContent = bmsState.hasSettingsInfo
+        ? `${s.chargeOtpC.toFixed(1)}°C / ${s.chargeOtpRecC.toFixed(1)}°C`
+        : '--°C / --°C';
+      document.getElementById('setChargeUtp').textContent = bmsState.hasSettingsInfo
+        ? `${s.chargeUtpC.toFixed(1)}°C / ${s.chargeUtpRecC.toFixed(1)}°C`
+        : '--°C / --°C';
+      document.getElementById('setDischargeOtp').textContent = bmsState.hasSettingsInfo
+        ? `${s.dischargeOtpC.toFixed(1)}°C / ${s.dischargeOtpRecC.toFixed(1)}°C`
+        : '--°C / --°C';
+      document.getElementById('setMosOtp').textContent = bmsState.hasSettingsInfo
+        ? `${s.mosOtpC.toFixed(1)}°C / ${s.mosOtpRecC.toFixed(1)}°C`
+        : '--°C / --°C';
+    }
+
+    // =========================================================================
+    // SỰ KIỆN ĐIỀU KHIỂN TRÊN TRANG
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      // Chuyển Tab
+      const tabButtons = document.querySelectorAll('.nav-tab-btn');
+      const tabPanels = document.querySelectorAll('.tab-panel');
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-tab');
+          tabButtons.forEach((b) => {
+            b.className = 'nav-tab-btn py-2 px-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 transition';
+          });
+          btn.className = 'nav-tab-btn py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 transition';
+
+          tabPanels.forEach((panel) => {
+            if (panel.id === targetId) {
+              panel.classList.remove('hidden');
+            } else {
+              panel.classList.add('hidden');
+            }
+          });
+        });
+      });
+
+      // Chọn phiên bản giao thức
+      document.getElementById('protocolSelect').addEventListener('change', (ev) => {
+        bmsState.protocolMode = ev.target.value;
+        renderAll();
+        showToast(`Đã chuyển chế độ giải mã giao thức sang: ${ev.target.value}`, 'info');
+      });
+
+      // Nút Kết nối / Ngắt kết nối Bluetooth
+      document.getElementById('btnConnectBle').addEventListener('click', () => {
+        if (bmsState.connected && bleDevice && bleDevice.gatt.connected) {
+          bleDevice.gatt.disconnect();
+        } else {
+          connectWebBluetooth();
+        }
+      });
+
+      // Nút Làm mới lệnh 0x97 & 0x96
+      document.getElementById('btnRefreshCmd').addEventListener('click', async () => {
+        if (!bmsState.connected || !activeWriteChar) {
+          showToast('Hãy kết nối Bluetooth tới mạch JK-BMS trước khi làm mới dữ liệu.', 'info');
+          return;
+        }
+        try {
+          await writeJkCommand(0x97);
+          setTimeout(() => { writeJkCommand(0x96); }, 400);
+          showToast('Đã gửi lệnh yêu cầu cập nhật lại dữ liệu (0x97 & 0x96).', 'success');
+        } catch (err) {
+          showToast(`Lỗi gửi lệnh: ${err.message || err}`, 'error');
+        }
+      });
+
+      // Sao chép mật khẩu
+      document.querySelectorAll('.btn-copy').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-copy-target');
+          const el = document.getElementById(targetId);
+          if (el) copyTextSafe(el.textContent.trim(), 'mật khẩu');
+        });
+      });
+
+      // Xuất JSON
+      document.getElementById('btnExportJson').addEventListener('click', () => {
+        const jsonStr = JSON.stringify(bmsState, null, 2);
+        copyTextSafe(jsonStr, 'JSON dữ liệu JK-BMS');
+      });
+
+      // Nút yêu cầu đọc lại lệnh 0x97
+      document.getElementById('btnRequestDeviceInfo').addEventListener('click', async () => {
+        if (bmsState.connected && activeWriteChar) {
+          await writeJkCommand(0x97);
+          showToast('Đã gửi lệnh 0x97 yêu cầu mạch trả về Tên & Mật khẩu.', 'success');
+        } else {
+          showToast('Chưa kết nối Bluetooth với mạch JK-BMS.', 'info');
+        }
+      });
+
+      // Nút nạp gói Hex thực tế (JK-B2A24S15P) để kiểm tra bộ giải mã
+      document.getElementById('btnLoadSampleHex').addEventListener('click', () => {
+        const sampleHex =
+          '55 AA EB 90 02 8C FF 0C 01 0D 01 0D FF 0C 01 0D 01 0D FF 0C 01 0D 01 0D 01 0D 01 0D FF 0C 01 0D 01 0D 01 0D 01 0D ' +
+          '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF 00 00 00 0D 00 00 00 00 9D 01 96 01 8C 01 87 01 84 01 84 01 ' +
+          '83 01 84 01 85 01 81 01 83 01 86 01 82 01 82 01 83 01 85 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ' +
+          '00 00 00 00 03 D0 00 00 00 00 00 00 00 00 00 00 BE 00 BF 00 D2 00 00 00 00 00 00 54 8E 0B 01 00 68 3C 01 00 00 00 ' +
+          '00 00 3D 04 00 00 64 00 79 04 CA 03 10 00 01 01 AA 06 00 00 00 00 00 00 00 00 00 00 00 00 07 00 01 00 00 00 D5 02 ' +
+          '00 00 00 00 AE D6 3B 40 00 00 00 00 58 AA FD FF 00 00 00 01 00 02 00 00 EC E6 4F 00 00 00 00 00 00 00 00 00 00 00 ' +
+          '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ' +
+          '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 CD';
+        document.getElementById('hexInputBox').value = sampleHex;
+        showToast('Đã chèn gói Hex thực tế (Frame 0x02 - 16S 81Ah). Nhấn "Giải mã gói Hex" để xem!', 'info');
+      });
+
+      // Nút giải mã gói Hex
+      document.getElementById('btnDecodeHex').addEventListener('click', () => {
+        const rawText = document.getElementById('hexInputBox').value.trim();
+        if (!rawText) {
+          showToast('Vui lòng dán chuỗi Hex 300-byte vào ô trước khi giải mã.', 'error');
+          return;
+        }
+        const cleanHex = rawText.replace(/[^0-9a-fA-F]/g, '');
+        if (cleanHex.length < 600) {
+          showToast(`Gói tin cần đủ 300 bytes (600 ký tự Hex). Hiện tại mới có ${Math.floor(cleanHex.length / 2)} bytes.`, 'error');
+          return;
+        }
+        const bytes = new Uint8Array(300);
+        for (let i = 0; i < 300; i++) {
+          bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16);
+        }
+        const ok = decodeJkFrame(bytes);
+        if (ok) {
+          showToast('Giải mã gói tin Hex thành công! Đã cập nhật thông số trên bảng.', 'success');
+        } else {
+          showToast('Khung dữ liệu không hợp lệ hoặc sai mã kiểm tra CRC8.', 'error');
+        }
+      });
+
+      updateConnectionHeader();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
