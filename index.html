@@ -54,7 +54,7 @@
 </head>
 <body class="min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white pb-20 md:pb-8">
 
-  <!-- Toast Notification -->
+  <!-- Toast Notification Container -->
   <div id="toastContainer" class="fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 pointer-events-none flex flex-col gap-2"></div>
 
   <!-- Top App Bar -->
@@ -102,6 +102,26 @@
 
   <!-- Main Content Container -->
   <main class="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 pt-4 space-y-4">
+
+    <!-- iOS / Bluefy Troubleshooting Helper Banner -->
+    <div id="iosHelpBanner" class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1.5">
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-amber-300 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Lưu ý khi kết nối trên iPhone / Bluefy (Lỗi số 2)
+        </span>
+        <button id="btnDismissIosHelp" type="button" class="text-slate-400 hover:text-slate-200 text-xs font-semibold px-2 py-0.5 rounded bg-slate-800/80">
+          Đóng
+        </button>
+      </div>
+      <p class="text-slate-300 leading-relaxed">
+        1. <strong>Vuốt tắt hẳn app JK-BMS gốc</strong> trên điện thoại (mạch JK chỉ cho phép 1 thiết bị kết nối Bluetooth tại một thời điểm, nếu app gốc đang mở ngầm sẽ bị báo lỗi 2).<br>
+        2. Vào <strong>Cài đặt iPhone &gt; Quyền riêng tư &gt; Bluetooth</strong> (hoặc Cài đặt &gt; Bluefy) đảm bảo đã <strong>Bật Bluetooth</strong> cho ứng dụng Bluefy.<br>
+        3. Để điện thoại gần mạch trong bán kính 2 mét và bấm nút <strong>"Kết nối Bluetooth"</strong>.
+      </p>
+    </div>
 
     <!-- Navigation Tabs -->
     <nav class="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-slate-900 border border-slate-800">
@@ -159,7 +179,7 @@
           </div>
           <div>
             <div class="text-xs text-slate-400 font-medium" id="etaTitleLabel">Dự tính Thời gian Sạc / Xả (Theo dung lượng & dòng thực tế)</div>
-            <div class="text-base sm:text-lg font-bold text-white mt-0.5" id="metricEtaPrimary">Chờ dữ liệu dòng sạc/xả từ mạch...</div>
+            <div class="text-base sm:text-lg font-bold text-white mt-0.5" id="metricEtaPrimary">Chờ kết nối tới mạch JK-BMS...</div>
             <div class="text-xs text-slate-400 mt-0.5" id="metricEtaSub">Kết nối Bluetooth để tính tự động theo dung lượng còn lại và dung lượng thiết kế</div>
           </div>
         </div>
@@ -301,7 +321,7 @@
         </div>
       </div>
 
-      <!-- Extended Operational Metrics Strip (Energy, Cycles, Wire Resistance, Heating, Precharge, Runtime) -->
+      <!-- Extended Operational Metrics Strip -->
       <div class="glass-card rounded-2xl p-4">
         <h2 class="text-xs sm:text-sm font-bold text-slate-200 uppercase tracking-wider mb-3">Thông số Vận hành Mở rộng (Frame 0x02)</h2>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -597,11 +617,13 @@
           </div>
 
           <div class="p-4 rounded-2xl bg-slate-900/80 border border-sky-500/30 space-y-2">
-            <div class="font-bold text-sky-400 text-sm">2. Trên iPhone / iPad (iOS)</div>
+            <div class="font-bold text-sky-400 text-sm">2. Trên iPhone / iPad (iOS) - Ứng dụng Bluefy</div>
             <ul class="list-disc list-inside text-slate-300 space-y-1.5">
-              <li>Trình duyệt Safari mặc định của Apple không mở quyền Web Bluetooth.</li>
+              <li>Trình duyệt Safari mặc định của Apple không hỗ trợ Web Bluetooth.</li>
               <li>Hãy tải trình duyệt miễn phí <strong>Bluefy – Web BLE Browser</strong> trên App Store.</li>
-              <li>Mở trang web này bên trong ứng dụng <strong>Bluefy</strong> và nhấn <strong>"Kết nối Bluetooth"</strong> để đọc trực tiếp tên mạch, mật khẩu, thời gian sạc dự kiến và điện áp từng cell.</li>
+              <li><strong>Quan trọng</strong>: Hãy vuốt tắt hoàn toàn app JK-BMS gốc trên iPhone (mạch JK chỉ cho phép 1 thiết bị kết nối, nếu app gốc còn mở thì Bluefy sẽ báo lỗi kết nối 2).</li>
+              <li>Vào Cài đặt iPhone &gt; Bluefy và đảm bảo đã bật quyền <strong>Bluetooth</strong>.</li>
+              <li>Mở trang web trong Bluefy và bấm nút <strong>"Kết nối Bluetooth"</strong>.</li>
             </ul>
           </div>
         </div>
@@ -629,7 +651,7 @@
       setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
-      }, 3600);
+      }, 4200);
     }
 
     function copyTextSafe(text, label) {
@@ -663,9 +685,12 @@
     }
 
     // =========================================================================
-    // TRẠNG THÁI CHUNG CHO MỌI HỆ PIN & DUNG LƯỢNG (KHÔNG GIẢ LẬP ĐỘNG)
+    // TRẠNG THÁI CHUNG CHO MỌI HỆ PIN & DUNG LƯỢNG
     // =========================================================================
-    const JK_SERVICE_UUID = 0xFFE0;
+    // Định nghĩa cả chuỗi 128-bit lẫn 16-bit để tương thích hoàn toàn với iOS CBUUID của Bluefy
+    const JK_SERVICE_UUID_STR = '0000ffe0-0000-1000-8000-00805f9b34fb';
+    const JK_CHAR_UUID_STR = '0000ffe1-0000-1000-8000-00805f9b34fb';
+    const JK_CHAR_ALT_UUID_STR = '0000ffe2-0000-1000-8000-00805f9b34fb';
 
     const ERROR_LABELS = {
       0: 'Nội trở dây cân bằng lớn',
@@ -855,7 +880,6 @@
       const frameType = rawBytes[4];
 
       if (frameType === 0x03) {
-        // Frame 0x03: Device Info & Passwords
         bmsState.device.vendorId = readCString(rawBytes, 6, 16) || 'N/A';
         bmsState.device.hwVersion = readCString(rawBytes, 22, 8) || 'N/A';
         bmsState.device.swVersion = readCString(rawBytes, 30, 8) || 'N/A';
@@ -885,7 +909,6 @@
       }
 
       if (frameType === 0x01) {
-        // Frame 0x01: Protection Settings
         bmsState.settings.smartSleepV = dv.getUint32(6, true) * 0.001;
         bmsState.settings.cellUvpV = dv.getUint32(10, true) * 0.001;
         bmsState.settings.cellUvprV = dv.getUint32(14, true) * 0.001;
@@ -924,7 +947,6 @@
       }
 
       if (frameType === 0x02) {
-        // Frame 0x02: Real-time Cell & Pack Data
         const proto = getEffectiveProtocol();
         const is32s = proto === 'JK02_32S';
         const offset1 = is32s ? 16 : 0;
@@ -993,7 +1015,7 @@
     }
 
     // =========================================================================
-    // KẾT NỐI WEB BLUETOOTH TRỰC TIẾP TRÊN ĐIỆN THOẠI / MÁY TÍNH
+    // KẾT NỐI WEB BLUETOOTH ĐA NỀN TẢNG (HỖ TRỢ TỐI ĐA CHO BLUEFY & ANDROID)
     // =========================================================================
     let bleDevice = null;
     let activeWriteChar = null;
@@ -1041,20 +1063,64 @@
       }
 
       try {
-        showToast('Đang mở hộp thoại chọn mạch JK-BMS...', 'info');
-        bleDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            JK_SERVICE_UUID,
-            '0000ffe0-0000-1000-8000-00805f9b34fb'
-          ]
-        });
+        showToast('Đang quét Bluetooth... Chọn mạch JK-BMS của bạn trong danh sách.', 'info');
 
+        // Danh sách dịch vụ dạng chuỗi chuẩn 128-bit và 16-bit ngắn
+        const optServices = [
+          JK_SERVICE_UUID_STR,
+          JK_CHAR_UUID_STR,
+          JK_CHAR_ALT_UUID_STR,
+          'ffe0',
+          'ffe1',
+          'ffe2'
+        ];
+
+        let dev = null;
+        // Bước 1: Thử gọi requestDevice với bộ lọc tên và dịch vụ
+        try {
+          dev = await navigator.bluetooth.requestDevice({
+            filters: [
+              { services: [JK_SERVICE_UUID_STR] },
+              { services: ['ffe0'] },
+              { namePrefix: 'JK' },
+              { namePrefix: 'B1A' },
+              { namePrefix: 'B2A' },
+              { namePrefix: 'BMS' }
+            ],
+            optionalServices: optServices
+          });
+        } catch (filterErr) {
+          // Bước 2: Nếu bộ lọc bị chặn hoặc không có kết quả, quét tất cả thiết bị
+          dev = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: optServices
+          });
+        }
+
+        bleDevice = dev;
         bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
-        const server = await bleDevice.gatt.connect();
-        const service = await server.getPrimaryService(JK_SERVICE_UUID);
-        const chars = await service.getCharacteristics();
 
+        showToast(`Đang kết nối tới ${bleDevice.name || 'JK-BMS'}...`, 'info');
+        const server = await bleDevice.gatt.connect();
+
+        // Lấy dịch vụ chính (thử chuỗi 128-bit trước, sau đó chuỗi 16-bit)
+        let service = null;
+        try {
+          service = await server.getPrimaryService(JK_SERVICE_UUID_STR);
+        } catch (e1) {
+          try {
+            service = await server.getPrimaryService('ffe0');
+          } catch (e2) {
+            const allServices = await server.getPrimaryServices();
+            service = allServices.find((s) => s.uuid.toLowerCase().includes('ffe0')) || allServices[0];
+          }
+        }
+
+        if (!service) {
+          throw new Error('Không tìm thấy dịch vụ Bluetooth FFE0 trên mạch.');
+        }
+
+        const chars = await service.getCharacteristics();
         let notifyChar = null;
         let writeChar = null;
 
@@ -1086,9 +1152,18 @@
           } catch (e) {}
         }, 600);
 
-        showToast(`Đã kết nối tới ${bleDevice.name || 'JK-BMS'}!`, 'success');
+        showToast(`Đã kết nối thành công tới ${bleDevice.name || 'JK-BMS'}!`, 'success');
       } catch (err) {
-        showToast(`Không thể kết nối BLE: ${err.message || err}`, 'error');
+        const errText = (err && (err.message || err.name)) ? `${err.name || ''}: ${err.message || ''}`.trim() : String(err);
+        // Bắt lỗi số 2 đặc thù của Bluefy/iOS
+        if (errText === '2' || errText.includes('2') || errText.includes('connectionTimeout') || errText.includes('readNotPermitted') || errText.includes('User cancelled') || errText.includes('abort')) {
+          showToast('Lỗi kết nối BLE (Mã 2): Mạch JK đang bị giữ bởi app khác, hoặc chưa cấp quyền Bluetooth cho Bluefy. Hãy vuốt tắt hẳn app JK-BMS gốc trên iPhone rồi thử lại!', 'error');
+          // Mở banner hướng dẫn nếu đang ẩn
+          const banner = document.getElementById('iosHelpBanner');
+          if (banner) banner.classList.remove('hidden');
+        } else {
+          showToast(`Không thể kết nối BLE: ${errText}`, 'error');
+        }
       }
     }
 
@@ -1139,13 +1214,11 @@
 
       document.getElementById('protocolBadge').textContent = proto;
 
-      // Thanh nhận diện nhanh
       document.getElementById('quickDeviceName').textContent = d.deviceName || 'Chưa kết nối';
       document.getElementById('quickModel').textContent = d.vendorId || '--';
       document.getElementById('quickPinBle').textContent = d.devicePasscode || '--';
       document.getElementById('quickSetupPw').textContent = d.setupPasscode || '--';
 
-      // Thống kê điện áp Cell
       const volts = c.cellVoltages;
       let minV = 999, maxV = -999, minIdx = 1, maxIdx = 1, sumV = 0;
       volts.forEach((v, idx) => {
@@ -1163,7 +1236,6 @@
         c.batteryTypeCode
       );
 
-      // Tính dung lượng thiết kế hiệu dụng (lấy từ Frame 0x02 hoặc Frame 0x01)
       const nominalAh = c.nominalCapAh > 0 ? c.nominalCapAh : s.nominalCapAh;
       const remainAh = c.remainCapAh;
       const needChargeAh = Math.max(0, nominalAh - remainAh);
@@ -1172,7 +1244,6 @@
       const totalEnergyWh = nominalAh * packVolt;
       const needEnergyWh = needChargeAh * packVolt;
 
-      // Cập nhật Khung Dự tính Thời gian Sạc xong / Xả còn lại
       const etaPrimary = document.getElementById('metricEtaPrimary');
       const etaSub = document.getElementById('metricEtaSub');
       const needChargeEl = document.getElementById('metricNeedChargeAh');
@@ -1186,14 +1257,12 @@
         needChargeEl.textContent = `${needChargeAh.toFixed(2)} Ah (${Math.round(needEnergyWh)} Wh)`;
 
         if (c.currentA > 0.05) {
-          // Đang sạc: Tính thời gian sạc đầy (Hours = needChargeAh / currentA)
           if (needChargeAh <= 0.05 || c.socPercent >= 100) {
             etaPrimary.textContent = 'Pin đã sạc đầy (100%)';
             etaPrimary.className = 'text-base sm:text-lg font-bold text-emerald-400 mt-0.5';
             etaSub.textContent = `Dòng duy trì: +${c.currentA.toFixed(2)} A`;
           } else {
             const hoursToFull = needChargeAh / c.currentA;
-            // Cộng thêm ~8% thời gian giảm dòng pha CV ở cuối chu kỳ sạc
             const hoursWithCv = hoursToFull * 1.08;
             const finishTime = new Date(Date.now() + hoursWithCv * 3600 * 1000);
             const finishStr = finishTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -1203,7 +1272,6 @@
             etaSub.textContent = `Đang nạp +${c.currentA.toFixed(2)} A (+${c.powerW.toFixed(0)} W) • Cần nạp thêm ${needChargeAh.toFixed(2)} Ah / ${nominalAh.toFixed(1)} Ah`;
           }
         } else if (c.currentA < -0.05) {
-          // Đang xả: Tính thời gian sử dụng còn lại (Hours = remainAh / |currentA|)
           const dischargeA = Math.abs(c.currentA);
           const hoursToEmpty = remainAh / dischargeA;
           const emptyTime = new Date(Date.now() + hoursToEmpty * 3600 * 1000);
@@ -1213,7 +1281,6 @@
           etaPrimary.className = 'text-base sm:text-lg font-bold text-amber-400 mt-0.5';
           etaSub.textContent = `Đang xả ${c.currentA.toFixed(2)} A (${Math.abs(c.powerW).toFixed(0)} W) • Còn lại ${remainAh.toFixed(2)} Ah (${Math.round(remainEnergyWh)} Wh)`;
         } else {
-          // Trạng thái nghỉ (Standby)
           etaPrimary.textContent = 'Trạng thái Chờ (Không sạc / Không xả)';
           etaPrimary.className = 'text-base sm:text-lg font-bold text-white mt-0.5';
           const est5A = needChargeAh > 0 ? formatHoursToReadable((needChargeAh / 5.0) * 1.08) : '0 phút';
@@ -1318,7 +1385,7 @@
         errEl.className = 'text-[11px] text-rose-400 font-semibold mt-1 truncate';
       }
 
-      // Khung thông số mở rộng (Frame 0x02)
+      // Khung thông số mở rộng
       const totalResMohm = c.cellResistances.reduce((acc, r) => acc + r * 1000, 0);
       const avgResMohm = c.cellResistances.length ? totalResMohm / c.cellResistances.length : 0;
 
@@ -1462,6 +1529,14 @@
     // SỰ KIỆN ĐIỀU KHIỂN TRÊN TRANG
     // =========================================================================
     window.addEventListener('DOMContentLoaded', () => {
+      // Ẩn/Hiện banner hướng dẫn iPhone
+      const btnDismiss = document.getElementById('btnDismissIosHelp');
+      if (btnDismiss) {
+        btnDismiss.addEventListener('click', () => {
+          document.getElementById('iosHelpBanner').classList.add('hidden');
+        });
+      }
+
       // Chuyển Tab
       const tabButtons = document.querySelectorAll('.nav-tab-btn');
       const tabPanels = document.querySelectorAll('.tab-panel');
@@ -1540,7 +1615,7 @@
         }
       });
 
-      // Nút nạp gói Hex thực tế (JK-B2A24S15P) để kiểm tra bộ giải mã
+      // Nút nạp gói Hex mẫu
       document.getElementById('btnLoadSampleHex').addEventListener('click', () => {
         const sampleHex =
           '55 AA EB 90 02 8C FF 0C 01 0D 01 0D FF 0C 01 0D 01 0D FF 0C 01 0D 01 0D 01 0D 01 0D FF 0C 01 0D 01 0D 01 0D 01 0D ' +
@@ -1552,7 +1627,7 @@
           '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ' +
           '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 CD';
         document.getElementById('hexInputBox').value = sampleHex;
-        showToast('Đã chèn gói Hex thực tế (Frame 0x02 - 16S 81Ah). Nhấn "Giải mã gói Hex" để xem!', 'info');
+        showToast('Đã chèn gói Hex mẫu (Frame 0x02 - 16S 81Ah). Nhấn "Giải mã gói Hex" để xem!', 'info');
       });
 
       // Nút giải mã gói Hex
