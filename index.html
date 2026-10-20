@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>JK-BMS Universal BLE Web Monitor (3S - 32S)</title>
+  <title>Universal Smart BMS Monitor (JK, ANT, Daly, JBD) - Tự động nhận diện (3S - 32S)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -68,7 +68,7 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-base md:text-lg font-bold tracking-tight text-white">JK-BMS Universal Monitor</h1>
+            <h1 class="text-base md:text-lg font-bold tracking-tight text-white">Universal Smart BMS Monitor</h1>
             <span id="protocolBadge" class="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/30">AUTO (3S–32S)</span>
           </div>
           <div class="flex items-center gap-2 text-xs text-slate-400">
@@ -80,10 +80,12 @@
 
       <!-- Primary Action Buttons -->
       <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-        <select id="protocolSelect" aria-label="Chọn giao thức JK-BMS" class="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700 focus:outline-none focus:border-emerald-500">
-          <option value="auto">Giao thức: Tự động</option>
-          <option value="JK02_24S">JK02_24S (FW ≤ v10.x)</option>
-          <option value="JK02_32S">JK02_32S (FW ≥ v11.x)</option>
+        <select id="protocolSelect" aria-label="Chọn giao thức BMS" class="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700 focus:outline-none focus:border-emerald-500">
+          <option value="auto">Tự động nhận diện (JK / ANT / Daly / JBD)</option>
+          <option value="ANT_BMS">Ép chọn: ANT-BMS (Mayi / JNFN)</option>
+          <option value="JK_BMS">Ép chọn: JK-BMS (Jikong)</option>
+          <option value="DALY_BMS">Ép chọn: Daly Smart BMS</option>
+          <option value="JBD_BMS">Ép chọn: JBD / Xiaoxiang BMS</option>
         </select>
 
         <button id="btnConnectBle" type="button" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20 transition">
@@ -154,19 +156,22 @@
           </div>
           <div class="hidden sm:inline text-slate-700">•</div>
           <div class="text-slate-400">
-            Khung giải mã: <span id="diagFrames" class="font-mono text-slate-300">0x01: 0 | 0x02: 0 | 0x03: 0</span>
+            Loại mạch: <span id="diagDetectedBms" class="font-mono font-bold text-emerald-400">Tự động nhận diện...</span>
           </div>
           <div class="hidden md:inline text-slate-700">•</div>
           <div class="text-slate-400">
-            Lệnh gần nhất: <span id="diagLastCmd" class="font-mono text-amber-400">Chưa gửi</span>
+            Lệnh gửi: <span id="diagLastCmd" class="font-mono text-amber-400">Chưa gửi</span>
           </div>
         </div>
-        <div class="flex items-center gap-1.5">
-          <button id="btnQuickCmd96" type="button" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition">
-            Gửi 0x96 (Cell)
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button id="btnSendAntCmd" type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition">
+            Kích hoạt ANT (5A 5A)
           </button>
-          <button id="btnQuickCmd97" type="button" class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[11px] font-semibold transition">
-            Gửi 0x97 (Tên/MK)
+          <button id="btnQuickCmd96" type="button" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition">
+            Kích hoạt JK (0x96)
+          </button>
+          <button id="btnQuickCmd97" type="button" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold transition">
+            Đọc MK JK (0x97)
           </button>
         </div>
       </div>
@@ -635,8 +640,11 @@
           <button id="btnDecodeHex" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">
             Giải mã gói Hex
           </button>
-          <button id="btnLoadSampleHex" type="button" class="px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-            Chèn gói Hex mẫu (JK-B2A24S15P)
+          <button id="btnLoadSampleHex" type="button" class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            Chèn mẫu JK-BMS (16S)
+          </button>
+          <button id="btnLoadSampleAntHex" type="button" class="px-3 py-2 rounded-xl text-xs font-medium bg-sky-950/80 hover:bg-sky-900/80 text-sky-300 border border-sky-700/50 transition">
+            Chèn mẫu ANT-BMS (17S 60V)
           </button>
         </div>
       </div>
@@ -732,13 +740,9 @@
     }
 
     // =========================================================================
-    // TRẠNG THÁI CHUNG CHO MỌI HỆ PIN & DUNG LƯỢNG
     // =========================================================================
-    // Định nghĩa cả chuỗi 128-bit lẫn 16-bit để tương thích hoàn toàn với iOS CBUUID của Bluefy
-    const JK_SERVICE_UUID_STR = '0000ffe0-0000-1000-8000-00805f9b34fb';
-    const JK_CHAR_UUID_STR = '0000ffe1-0000-1000-8000-00805f9b34fb';
-    const JK_CHAR_ALT_UUID_STR = '0000ffe2-0000-1000-8000-00805f9b34fb';
-
+    // TRẠNG THÁI VÀ BỘ GIẢI MÃ ĐA GIAO THỨC (JK-BMS, ANT-BMS, DALY, JBD)
+    // =========================================================================
     const ERROR_LABELS = {
       0: 'Nội trở dây cân bằng lớn',
       1: 'Quá nhiệt MOSFET',
@@ -767,11 +771,12 @@
 
     const bmsState = {
       connected: false,
+      bmsBrand: 'Tự động dò...', // 'JK-BMS', 'ANT-BMS', 'Daly BMS', 'JBD BMS'
       hasDeviceInfo: false,
       hasSettingsInfo: false,
       hasCellInfo: false,
       protocolMode: 'auto',
-      detectedProtocol: 'JK02_24S',
+      detectedProtocol: 'Tự động nhận diện',
       device: {
         vendorId: '',
         hwVersion: '',
@@ -855,7 +860,10 @@
     };
 
     function getEffectiveProtocol() {
-      if (bmsState.protocolMode === 'JK02_24S' || bmsState.protocolMode === 'JK02_32S') {
+      if (bmsState.bmsBrand && bmsState.bmsBrand !== 'Tự động dò...') {
+        return bmsState.bmsBrand;
+      }
+      if (bmsState.protocolMode && bmsState.protocolMode !== 'auto') {
         return bmsState.protocolMode;
       }
       return bmsState.detectedProtocol;
@@ -913,6 +921,9 @@
       return `${mins} phút`;
     }
 
+    // =========================================================================
+    // 1. GIẢI MÃ MẠCH JK-BMS (300 BYTES - FRAME 0x01, 0x02, 0x03)
+    // =========================================================================
     function decodeJkFrame(rawBytes) {
       if (rawBytes.length < 300) return false;
       if (rawBytes[0] !== 0x55 || rawBytes[1] !== 0xAA || rawBytes[2] !== 0xEB || rawBytes[3] !== 0x90) {
@@ -923,17 +934,18 @@
         return false;
       }
 
+      bmsState.bmsBrand = 'JK-BMS';
       const dv = new DataView(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
       const frameType = rawBytes[4];
 
       if (frameType === 0x03) {
-        bmsState.device.vendorId = readCString(rawBytes, 6, 16) || 'N/A';
+        bmsState.device.vendorId = readCString(rawBytes, 6, 16) || 'JK-BMS';
         bmsState.device.hwVersion = readCString(rawBytes, 22, 8) || 'N/A';
         bmsState.device.swVersion = readCString(rawBytes, 30, 8) || 'N/A';
         bmsState.device.uptimeSec = dv.getUint32(38, true);
         bmsState.device.powerOnCount = dv.getUint32(42, true);
-        bmsState.device.deviceName = readCString(rawBytes, 46, 16) || 'N/A';
-        bmsState.device.devicePasscode = readCString(rawBytes, 62, 16) || 'N/A';
+        bmsState.device.deviceName = readCString(rawBytes, 46, 16) || (bleDevice && bleDevice.name ? bleDevice.name : 'JK-BMS');
+        bmsState.device.devicePasscode = readCString(rawBytes, 62, 16) || '1234';
 
         const mfgRaw = readCString(rawBytes, 78, 8);
         if (/^\d{6}$/.test(mfgRaw)) {
@@ -942,13 +954,15 @@
           bmsState.device.mfgDate = mfgRaw || 'N/A';
         }
         bmsState.device.serialNumber = readCString(rawBytes, 86, 11) || 'N/A';
-        bmsState.device.passcode = readCString(rawBytes, 97, 5) || 'N/A';
+        bmsState.device.passcode = readCString(rawBytes, 97, 5) || '0000';
         bmsState.device.userData = readCString(rawBytes, 102, 16) || 'N/A';
-        bmsState.device.setupPasscode = readCString(rawBytes, 118, 16) || 'N/A';
+        bmsState.device.setupPasscode = readCString(rawBytes, 118, 16) || '123456';
 
         const majorMatch = bmsState.device.swVersion.match(/^(\d+)/);
         if (majorMatch) {
           bmsState.detectedProtocol = parseInt(majorMatch[1], 10) >= 11 ? 'JK02_32S' : 'JK02_24S';
+        } else {
+          bmsState.detectedProtocol = 'JK-BMS';
         }
         bmsState.hasDeviceInfo = true;
         renderAll();
@@ -994,7 +1008,7 @@
       }
 
       if (frameType === 0x02) {
-        const proto = getEffectiveProtocol();
+        const proto = bmsState.detectedProtocol;
         const is32s = proto === 'JK02_32S';
         const offset1 = is32s ? 16 : 0;
         const offset2 = is32s ? 32 : 0;
@@ -1061,8 +1075,191 @@
       return false;
     }
 
-        // =========================================================================
-    // KẾT NỐI WEB BLUETOOTH ĐA NỀN TẢNG (TỐI ƯU TOÀN DIỆN CHO BLUEFY / IOS & ANDROID)
+    // =========================================================================
+    // 2. GIẢI MÃ MẠCH ANT-BMS (MAYI / JNFN - 140 BYTES STREAM)
+    // =========================================================================
+    function decodeAntFrame(rawBytes) {
+      if (rawBytes.length < 140) return false;
+      if (rawBytes[0] !== 0xAA || rawBytes[1] !== 0x55 || rawBytes[2] !== 0xAA || rawBytes[3] !== 0xFF) {
+        return false;
+      }
+
+      bmsState.bmsBrand = 'ANT-BMS';
+      bmsState.detectedProtocol = 'ANT-BMS (140B)';
+      const dv = new DataView(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
+
+      // Byte 4..5: Tổng điện áp (0.1V, big endian)
+      const totalV = dv.getUint16(4, false) * 0.1;
+
+      // Byte 6..69: 32 Cell điện áp (mV, big endian)
+      const volts = [];
+      const res = [];
+      for (let i = 0; i < 32; i++) {
+        const v = dv.getUint16(6 + i * 2, false) * 0.001;
+        if (v > 0.05 && v < 5.0) {
+          volts.push(v);
+          res.push(0.04); // ước lượng nội trở dây tiêu chuẩn
+        }
+      }
+
+      // Byte 70..73: Dòng điện (int32 big endian, 0.1A)
+      const curA = dv.getInt32(70, false) * 0.1;
+
+      // Byte 74: SOC % (0..100)
+      const soc = rawBytes[74];
+
+      // Byte 75..78 & 79..82: Dung lượng định danh & dung lượng còn lại
+      let nomCapRaw = dv.getUint32(75, false);
+      let remCapRaw = dv.getUint32(79, false);
+
+      let nomCap = nomCapRaw > 500000 ? nomCapRaw * 0.000001 : (nomCapRaw > 1000 ? nomCapRaw * 0.001 : nomCapRaw);
+      let remCap = remCapRaw > 500000 ? remCapRaw * 0.000001 : (remCapRaw > 1000 ? remCapRaw * 0.001 : remCapRaw);
+      if (nomCap <= 0 && remCap > 0) nomCap = remCap;
+      if (nomCap <= 0) nomCap = 30.0;
+
+      const cycles = dv.getUint32(83, false);
+      const runtime = dv.getUint32(87, false);
+
+      // Nhiệt độ
+      const t1 = dv.getInt16(91, false);
+      const t2 = dv.getInt16(93, false);
+      const t3 = dv.getInt16(95, false);
+      const t4 = dv.getInt16(97, false);
+      const mosTemp = dv.getInt16(99, false);
+
+      // Trạng thái MOS & Cân bằng
+      const chargeMos = Boolean(rawBytes[101]);
+      const dischargeMos = Boolean(rawBytes[102]);
+      const balancer = rawBytes[103];
+
+      bmsState.device.vendorId = 'ANT-BMS (Mayi/JNFN)';
+      bmsState.device.deviceName = (bleDevice && bleDevice.name) ? bleDevice.name : 'ANT-BMS';
+      bmsState.device.devicePasscode = '123456 (Mặc định)';
+      bmsState.device.setupPasscode = '123456 (Mặc định)';
+      bmsState.device.uptimeSec = runtime;
+
+      bmsState.live.totalVoltageV = totalV;
+      bmsState.live.cellVoltages = volts;
+      bmsState.live.cellResistances = res;
+      bmsState.live.currentA = curA;
+      bmsState.live.powerW = totalV * curA;
+      bmsState.live.socPercent = Math.min(100, Math.max(0, soc));
+      bmsState.live.nominalCapAh = nomCap;
+      bmsState.live.remainCapAh = remCap;
+      bmsState.live.cycles = cycles;
+      bmsState.live.runtimeSec = runtime;
+      bmsState.live.temp1C = t1;
+      bmsState.live.temp2C = t2;
+      bmsState.live.temp3C = t3;
+      bmsState.live.temp4C = t4;
+      bmsState.live.mosTempC = mosTemp;
+      bmsState.live.chargeMosOn = chargeMos;
+      bmsState.live.dischargeMosOn = dischargeMos;
+      bmsState.live.balancingAction = balancer;
+      bmsState.live.sohPercent = 100;
+      bmsState.live.errorsBitmask = 0;
+
+      bmsState.hasDeviceInfo = true;
+      bmsState.hasCellInfo = true;
+      renderAll();
+      return true;
+    }
+
+    // =========================================================================
+    // 3. GIẢI MÃ MẠCH JBD / XIAOXIANG BMS
+    // =========================================================================
+    function decodeJbdFrame(buf) {
+      if (buf.length < 7 || buf[0] !== 0xDD) return false;
+      const cmd = buf[1];
+      const len = buf[3];
+      if (buf.length < len + 7 || buf[len + 6] !== 0x77) return false;
+
+      bmsState.bmsBrand = 'JBD BMS';
+      bmsState.detectedProtocol = 'JBD/Xiaoxiang';
+      const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+
+      bmsState.device.vendorId = 'JBD / Xiaoxiang BMS';
+      bmsState.device.deviceName = (bleDevice && bleDevice.name) ? bleDevice.name : 'JBD-BMS';
+      bmsState.device.devicePasscode = '000000 (Mặc định)';
+      bmsState.device.setupPasscode = '123456 (Mặc định)';
+
+      if (cmd === 0x03) {
+        bmsState.live.totalVoltageV = dv.getUint16(4, false) * 0.01;
+        bmsState.live.currentA = dv.getInt16(6, false) * 0.01;
+        bmsState.live.powerW = bmsState.live.totalVoltageV * bmsState.live.currentA;
+        bmsState.live.remainCapAh = dv.getUint16(8, false) * 0.01;
+        bmsState.live.nominalCapAh = dv.getUint16(10, false) * 0.01;
+        bmsState.live.cycles = dv.getUint16(12, false);
+        bmsState.live.socPercent = buf[23];
+        const mos = buf[24];
+        bmsState.live.chargeMosOn = Boolean(mos & 0x01);
+        bmsState.live.dischargeMosOn = Boolean(mos & 0x02);
+        const ntcCount = buf[26];
+        if (ntcCount > 0) {
+          bmsState.live.temp1C = (dv.getUint16(27, false) - 2731) * 0.1;
+          bmsState.live.mosTempC = bmsState.live.temp1C;
+        }
+        if (ntcCount > 1) {
+          bmsState.live.temp2C = (dv.getUint16(29, false) - 2731) * 0.1;
+        }
+        bmsState.hasDeviceInfo = true;
+        bmsState.hasCellInfo = true;
+        renderAll();
+        return true;
+      } else if (cmd === 0x04) {
+        const cellCount = Math.floor(len / 2);
+        const volts = [];
+        for (let i = 0; i < cellCount; i++) {
+          const v = dv.getUint16(4 + i * 2, false) * 0.001;
+          if (v > 0.05) volts.push(v);
+        }
+        bmsState.live.cellVoltages = volts;
+        bmsState.hasCellInfo = true;
+        renderAll();
+        return true;
+      }
+      return false;
+    }
+
+    // =========================================================================
+    // 4. GIẢI MÃ MẠCH DALY SMART BMS
+    // =========================================================================
+    function decodeDalyFrame(buf) {
+      if (buf.length < 13 || buf[0] !== 0xA5) return false;
+      bmsState.bmsBrand = 'Daly BMS';
+      bmsState.detectedProtocol = 'Daly Smart BMS';
+
+      bmsState.device.vendorId = 'Daly Smart BMS';
+      bmsState.device.deviceName = (bleDevice && bleDevice.name) ? bleDevice.name : 'Daly-BMS';
+      bmsState.device.devicePasscode = '123456 (Mặc định)';
+      bmsState.device.setupPasscode = '123456 (Mặc định)';
+
+      const cmd = buf[2];
+      if (cmd === 0x90) {
+        bmsState.live.totalVoltageV = ((buf[4] << 8) | buf[5]) * 0.1;
+        bmsState.live.currentA = (((buf[8] << 8) | buf[9]) - 30000) * 0.1;
+        bmsState.live.powerW = bmsState.live.totalVoltageV * bmsState.live.currentA;
+        bmsState.live.socPercent = Math.round(((buf[10] << 8) | buf[11]) * 0.1);
+        bmsState.hasCellInfo = true;
+        renderAll();
+        return true;
+      } else if (cmd === 0x92) {
+        bmsState.live.mosTempC = buf[4] - 40;
+        bmsState.live.temp1C = buf[4] - 40;
+        bmsState.live.temp2C = buf[6] - 40;
+        renderAll();
+        return true;
+      } else if (cmd === 0x93) {
+        bmsState.live.chargeMosOn = Boolean(buf[8]);
+        bmsState.live.dischargeMosOn = Boolean(buf[9]);
+        renderAll();
+        return true;
+      }
+      return false;
+    }
+
+    // =========================================================================
+    // KẾT NỐI VÀ GIAO TIẾP WEB BLUETOOTH TỰ ĐỘNG ĐA NỀN TẢNG
     // =========================================================================
     let bleDevice = null;
     let writeCharacteristics = [];
@@ -1086,7 +1283,7 @@
 
     function updateBleDiagUI() {
       const bytesEl = document.getElementById('diagBytesRx');
-      const framesEl = document.getElementById('diagFrames');
+      const bmsEl = document.getElementById('diagDetectedBms');
       const cmdEl = document.getElementById('diagLastCmd');
       const dotEl = document.getElementById('diagDot');
       const noDataBanner = document.getElementById('noDataAlert');
@@ -1102,8 +1299,8 @@
         }
       }
 
-      if (framesEl) {
-        framesEl.textContent = `0x01: ${bleStats.frames01} | 0x02: ${bleStats.frames02} | 0x03: ${bleStats.frames03}`;
+      if (bmsEl) {
+        bmsEl.textContent = bmsState.bmsBrand || 'Đang quét...';
       }
 
       if (cmdEl) {
@@ -1129,6 +1326,7 @@
       }
     }
 
+    // Bộ phân tích trượt theo chuẩn luồng dữ liệu liên tục đa giao thức (Universal Sliding Window)
     function feedBleBytes(uint8Chunk) {
       if (!uint8Chunk || uint8Chunk.length === 0) return;
       bleStats.bytesReceived += uint8Chunk.length;
@@ -1140,110 +1338,181 @@
         bleRxBuffer.push(uint8Chunk[i]);
       }
 
-      // Bộ phân tích trượt theo chuẩn luồng dữ liệu liên tục (Sliding Window Stream Parser)
-      while (bleRxBuffer.length >= 300) {
+      while (bleRxBuffer.length >= 13) {
+        // 1. Kiểm tra mạch JK-BMS: 55 AA EB 90 (300 bytes)
         if (
           bleRxBuffer[0] === 0x55 &&
           bleRxBuffer[1] === 0xAA &&
           bleRxBuffer[2] === 0xEB &&
           bleRxBuffer[3] === 0x90
         ) {
+          if (bleRxBuffer.length < 300) break;
           const crc = calcCrc8(bleRxBuffer, 299);
           if (crc === bleRxBuffer[299]) {
             const frame = new Uint8Array(bleRxBuffer.slice(0, 300));
             bleRxBuffer.splice(0, 300);
+            bmsState.bmsBrand = 'JK-BMS';
             const frameType = frame[4];
             if (frameType === 0x01) bleStats.frames01++;
             else if (frameType === 0x02) bleStats.frames02++;
             else if (frameType === 0x03) bleStats.frames03++;
             decodeJkFrame(frame);
             updateBleDiagUI();
+            continue;
           } else {
-            // Lệch CRC: trượt tiến 1 byte để tìm khung tiếp theo
             bleRxBuffer.shift();
+            continue;
           }
-        } else {
-          // Tìm vị trí chuỗi mào đầu 55 AA EB 90 tiếp theo trong bộ đệm
-          let found = -1;
-          for (let i = 1; i <= bleRxBuffer.length - 4; i++) {
-            if (
-              bleRxBuffer[i] === 0x55 &&
-              bleRxBuffer[i + 1] === 0xAA &&
-              bleRxBuffer[i + 2] === 0xEB &&
-              bleRxBuffer[i + 3] === 0x90
-            ) {
-              found = i;
-              break;
-            }
+        }
+
+        // 2. Kiểm tra mạch ANT-BMS: AA 55 AA FF (140 bytes)
+        if (
+          bleRxBuffer[0] === 0xAA &&
+          bleRxBuffer[1] === 0x55 &&
+          bleRxBuffer[2] === 0xAA &&
+          bleRxBuffer[3] === 0xFF
+        ) {
+          if (bleRxBuffer.length < 140) break;
+          const frame = new Uint8Array(bleRxBuffer.slice(0, 140));
+          bleRxBuffer.splice(0, 140);
+          bmsState.bmsBrand = 'ANT-BMS';
+          bleStats.frames02++;
+          decodeAntFrame(frame);
+          updateBleDiagUI();
+          continue;
+        }
+
+        // 3. Kiểm tra mạch JBD BMS: DD ... 77
+        if (bleRxBuffer[0] === 0xDD && bleRxBuffer.length >= 7) {
+          const dataLen = bleRxBuffer[3];
+          const packetLen = dataLen + 7;
+          if (bleRxBuffer.length < packetLen) {
+            if (packetLen > 300) { bleRxBuffer.shift(); continue; }
+            break;
           }
-          if (found !== -1) {
-            bleRxBuffer.splice(0, found);
+          if (bleRxBuffer[packetLen - 1] === 0x77) {
+            const frame = new Uint8Array(bleRxBuffer.slice(0, packetLen));
+            bleRxBuffer.splice(0, packetLen);
+            bmsState.bmsBrand = 'JBD BMS';
+            bleStats.frames02++;
+            decodeJbdFrame(frame);
+            updateBleDiagUI();
+            continue;
           } else {
-            // Giữ lại 3 byte cuối cùng phòng trường hợp mào đầu bị cắt đôi giữa 2 gói tin BLE
-            bleRxBuffer = bleRxBuffer.slice(-3);
+            bleRxBuffer.shift();
+            continue;
+          }
+        }
+
+        // 4. Kiểm tra mạch Daly BMS: A5 01 (13 bytes)
+        if (bleRxBuffer[0] === 0xA5 && (bleRxBuffer[1] === 0x01 || bleRxBuffer[1] === 0x40)) {
+          if (bleRxBuffer.length < 13) break;
+          const chk = (bleRxBuffer.slice(0, 12).reduce((a, b) => a + b, 0)) & 0xFF;
+          if (chk === bleRxBuffer[12]) {
+            const frame = new Uint8Array(bleRxBuffer.slice(0, 13));
+            bleRxBuffer.splice(0, 13);
+            bmsState.bmsBrand = 'Daly BMS';
+            bleStats.frames02++;
+            decodeDalyFrame(frame);
+            updateBleDiagUI();
+            continue;
+          } else {
+            bleRxBuffer.shift();
+            continue;
+          }
+        }
+
+        // Không khớp mào đầu: trượt tiến đến byte mào đầu tiềm năng tiếp theo
+        let foundNext = -1;
+        for (let i = 1; i < bleRxBuffer.length; i++) {
+          const b = bleRxBuffer[i];
+          if (b === 0x55 || b === 0xAA || b === 0xDD || b === 0xA5 || b === 0x7E) {
+            foundNext = i;
             break;
           }
         }
+        if (foundNext !== -1) {
+          bleRxBuffer.splice(0, foundNext);
+        } else {
+          bleRxBuffer = bleRxBuffer.slice(-3);
+          break;
+        }
       }
 
-      // Giới hạn an toàn dung lượng bộ nhớ đệm
-      if (bleRxBuffer.length > 2048) {
-        bleRxBuffer = [];
-      }
+      if (bleRxBuffer.length > 2048) bleRxBuffer = [];
     }
 
     async function writeToCharacteristic(char, data) {
       let written = false;
-      // 1. Thử writeValueWithoutResponse (chuẩn tối ưu cho BLE throughput cao)
       if (typeof char.writeValueWithoutResponse === 'function') {
         try {
           await char.writeValueWithoutResponse(data);
           written = true;
-        } catch (e1) {
-          console.warn('writeValueWithoutResponse failed, trying fallback:', e1);
-        }
+        } catch (e1) {}
       }
-      // 2. Thử writeValueWithResponse
       if (!written && typeof char.writeValueWithResponse === 'function') {
         try {
           await char.writeValueWithResponse(data);
           written = true;
-        } catch (e2) {
-          console.warn('writeValueWithResponse failed, trying writeValue:', e2);
-        }
+        } catch (e2) {}
       }
-      // 3. Thử writeValue (chuẩn cũ của WebBLE trên iOS Bluefy)
       if (!written && typeof char.writeValue === 'function') {
         try {
           await char.writeValue(data);
           written = true;
-        } catch (e3) {
-          console.warn('writeValue failed:', e3);
-        }
+        } catch (e3) {}
       }
       return written;
     }
 
-    async function writeJkCommand(cmdByte) {
-      if (!writeCharacteristics || writeCharacteristics.length === 0) {
-        showToast('Chưa tìm thấy kênh ghi lệnh BLE trên mạch!', 'error');
-        return false;
-      }
-      cmdCounter = (cmdCounter + 1) & 0xFF;
-      const frame = buildCommandFrame(cmdByte, cmdCounter);
-      let successCount = 0;
+    async function writeRawBytesToAll(dataBytes) {
+      if (!writeCharacteristics || writeCharacteristics.length === 0) return false;
+      let okCount = 0;
       for (const char of writeCharacteristics) {
         try {
-          const ok = await writeToCharacteristic(char, frame);
-          if (ok) successCount++;
-        } catch (e) {
-          console.warn('Lỗi ghi lệnh tới characteristic:', e);
-        }
+          const ok = await writeToCharacteristic(char, dataBytes);
+          if (ok) okCount++;
+        } catch (e) {}
       }
-      const hexCmd = `0x${cmdByte.toString(16).toUpperCase()}`;
-      bleStats.lastCmdSent = hexCmd;
+      return okCount > 0;
+    }
+
+    async function writeJkCommand(cmdByte) {
+      cmdCounter = (cmdCounter + 1) & 0xFF;
+      const frame = buildCommandFrame(cmdByte, cmdCounter);
+      const res = await writeRawBytesToAll(frame);
+      bleStats.lastCmdSent = `0x${cmdByte.toString(16).toUpperCase()}`;
       updateBleDiagUI();
-      return successCount > 0;
+      return res;
+    }
+
+    async function sendUniversalHandshake() {
+      // 1. Kích hoạt ANT-BMS (5A 5A 00 00 00 00)
+      const antCmd = new Uint8Array([0x5A, 0x5A, 0x00, 0x00, 0x00, 0x00]);
+      await writeRawBytesToAll(antCmd);
+      bleStats.lastCmdSent = 'ANT (5A 5A)';
+      updateBleDiagUI();
+
+      // 2. Kích hoạt JK-BMS (0x97 và 0x96)
+      setTimeout(async () => {
+        await writeJkCommand(0x97);
+      }, 300);
+
+      setTimeout(async () => {
+        await writeJkCommand(0x96);
+      }, 700);
+
+      // 3. Kích hoạt JBD BMS
+      setTimeout(async () => {
+        const jbdCmd = new Uint8Array([0xDD, 0xA5, 0x03, 0x00, 0xFF, 0xFD, 0x77]);
+        await writeRawBytesToAll(jbdCmd);
+      }, 1000);
+
+      // 4. Kích hoạt Daly BMS
+      setTimeout(async () => {
+        const dalyCmd = new Uint8Array([0xA5, 0x40, 0x90, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7D]);
+        await writeRawBytesToAll(dalyCmd);
+      }, 1300);
     }
 
     async function connectWebBluetooth() {
@@ -1253,15 +1522,15 @@
       }
 
       try {
-        showToast('Đang quét Bluetooth... Chọn mạch JK-BMS của bạn trong danh sách.', 'info');
+        showToast('Đang quét Bluetooth... Chọn mạch BMS của bạn trong danh sách.', 'info');
 
-        // Danh sách dịch vụ tương thích toàn diện cho cả chuẩn 128-bit lẫn 16-bit
         const optServices = [
           '0000ffe0-0000-1000-8000-00805f9b34fb',
           '0000fee0-0000-1000-8000-00805f9b34fb',
+          '0000fff0-0000-1000-8000-00805f9b34fb',
+          '0000ff00-0000-1000-8000-00805f9b34fb',
           '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-          'ffe0',
-          'fee0'
+          'ffe0', 'fee0', 'fff0', 'ff00'
         ];
 
         let dev = null;
@@ -1274,8 +1543,12 @@
               { namePrefix: 'B1A' },
               { namePrefix: 'B2A' },
               { namePrefix: 'BMS' },
+              { namePrefix: 'ANT' },
+              { namePrefix: 'ant' },
               { namePrefix: 'pin' },
-              { namePrefix: 'PIN' }
+              { namePrefix: 'PIN' },
+              { namePrefix: 'DL' },
+              { namePrefix: 'JBD' }
             ],
             optionalServices: optServices
           });
@@ -1289,7 +1562,7 @@
         bleDevice = dev;
         bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
 
-        showToast(`Đang kết nối tới ${bleDevice.name || 'JK-BMS'}...`, 'info');
+        showToast(`Đang kết nối tới ${bleDevice.name || 'Mạch BMS'}...`, 'info');
         const server = await bleDevice.gatt.connect();
 
         writeCharacteristics = [];
@@ -1301,39 +1574,37 @@
         bleStats.frames02 = 0;
         bleStats.frames03 = 0;
         bleStats.lastCmdSent = 'Đang khởi tạo...';
-        updateBleDiagUI();
 
-        // 1. Duyệt tìm toàn bộ các Primary Services được cấp phép
+        // Cập nhật trạng thái KẾT NỐI NGAY LẬP TỨC trên toàn bộ giao diện
+        bmsState.connected = true;
+        bmsState.device.deviceName = bleDevice.name || 'Mạch Smart BMS';
+        updateConnectionHeader();
+        updateBleDiagUI();
+        renderAll();
+
+        // 1. Duyệt lấy toàn bộ Services
         let services = [];
         try {
           services = await server.getPrimaryServices();
         } catch (errServ) {
-          try {
-            const s1 = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-            if (s1) services.push(s1);
-          } catch (e1) {
+          for (const sId of optServices) {
             try {
-              const s2 = await server.getPrimaryService('ffe0');
-              if (s2) services.push(s2);
-            } catch (e2) {}
+              const s = await server.getPrimaryService(sId);
+              if (s && !services.includes(s)) services.push(s);
+            } catch (e) {}
           }
         }
 
         if (!services || services.length === 0) {
-          throw new Error('Không tìm thấy dịch vụ Bluetooth FFE0 trên mạch.');
+          throw new Error('Không tìm thấy dịch vụ Bluetooth truyền thông trên mạch.');
         }
 
-        bleStats.serviceCount = services.length;
-
-        // 2. Duyệt tìm và khởi tạo toàn bộ Characteristics trên tất cả services
+        // 2. Duyệt tìm Characteristics
         for (const s of services) {
           try {
             const chars = await s.getCharacteristics();
-            bleStats.charCount += chars.length;
             for (const c of chars) {
               const p = c.properties || {};
-
-              // Đăng ký nhận thông báo dữ liệu (Notify / Indicate)
               const canNotify = p.notify || p.indicate || typeof c.startNotifications === 'function';
               if (canNotify) {
                 try {
@@ -1346,96 +1617,93 @@
                       const chunk = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
                       feedBleBytes(chunk);
                     } catch (errVal) {
-                      console.error('Lỗi nhận gói BLE notification:', errVal);
+                      console.error('Lỗi nhận gói BLE:', errVal);
                     }
                   };
                   c.addEventListener('characteristicvaluechanged', handleNotify);
                   c.oncharacteristicvaluechanged = handleNotify;
                   notifyCharacteristics.push(c);
-                } catch (errNoti) {
-                  console.warn('startNotifications không thành công trên char:', c.uuid, errNoti);
-                }
+                } catch (errNoti) {}
               }
 
-              // Ghi nhận characteristic cho phép ghi lệnh (Write)
               const canWrite = p.write || p.writeWithoutResponse || typeof c.writeValueWithoutResponse === 'function' || typeof c.writeValue === 'function';
               if (canWrite) {
                 writeCharacteristics.push(c);
               }
             }
-          } catch (errChars) {
-            console.warn('Không thể đọc characteristics của service:', s.uuid, errChars);
-          }
+          } catch (errChars) {}
         }
 
-        // Nếu c.properties trên Bluefy không trả về đúng cờ write, thêm dự phòng
         if (writeCharacteristics.length === 0 && notifyCharacteristics.length > 0) {
           writeCharacteristics = [...notifyCharacteristics];
         }
 
         if (notifyCharacteristics.length === 0 && writeCharacteristics.length === 0) {
-          throw new Error('Không tìm thấy characteristic nào hỗ trợ truyền nhận dữ liệu BLE FFE1.');
+          throw new Error('Không tìm thấy kênh truyền nhận dữ liệu trên mạch.');
         }
 
-        bmsState.connected = true;
-        updateConnectionHeader();
-        updateBleDiagUI();
+        showToast(`Đã kết nối BLE thành công tới ${bleDevice.name || 'Mạch BMS'}! Đang tự động nhận diện...`, 'success');
 
-        // 3. Gửi lệnh kích hoạt chuỗi đọc dữ liệu
-        // Lệnh 0x97: Đọc tên, mật khẩu kết nối, mật khẩu cài đặt
-        setTimeout(async () => {
-          try {
-            await writeJkCommand(0x97);
-          } catch (e) {}
-        }, 350);
+        // 3. Gửi chuỗi lệnh kích hoạt đa mạch (Universal Multi-BMS Handshake)
+        await sendUniversalHandshake();
 
-        // Lệnh 0x96: Kích hoạt mạch trả về Frame 0x01 (Cài đặt) và luồng Frame 0x02 (Điện áp cell)
-        setTimeout(async () => {
-          try {
-            await writeJkCommand(0x96);
-          } catch (e) {}
-        }, 850);
-
-        // 4. Cơ chế gửi lệnh định kỳ (Heartbeat Polling Loop)
-        // Một số firmware JK-BMS chỉ phản hồi Frame 0x02 khi nhận lệnh 0x96 liên tục
+        // 4. Vòng lặp tuần hoàn (Heartbeat Polling)
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         let heartBeatTicks = 0;
         heartbeatTimer = setInterval(async () => {
           if (!bmsState.connected || writeCharacteristics.length === 0) return;
           heartBeatTicks++;
           try {
-            // Nếu chưa đọc được mật khẩu / thông tin mạch, định kỳ hỏi lại 0x97
-            if (!bmsState.hasDeviceInfo && heartBeatTicks % 3 === 1) {
-              await writeJkCommand(0x97);
+            if (bmsState.bmsBrand === 'ANT-BMS') {
+              const antCmd = new Uint8Array([0x5A, 0x5A, 0x00, 0x00, 0x00, 0x00]);
+              await writeRawBytesToAll(antCmd);
+            } else if (bmsState.bmsBrand === 'JK-BMS') {
+              if (!bmsState.hasDeviceInfo && heartBeatTicks % 3 === 1) {
+                await writeJkCommand(0x97);
+              }
+              if (heartBeatTicks % 2 === 0) {
+                await writeJkCommand(0x96);
+              }
+            } else if (bmsState.bmsBrand === 'JBD BMS') {
+              const jbdCmd = (heartBeatTicks % 2 === 0)
+                ? new Uint8Array([0xDD, 0xA5, 0x03, 0x00, 0xFF, 0xFD, 0x77])
+                : new Uint8Array([0xDD, 0xA5, 0x04, 0x00, 0xFF, 0xFC, 0x77]);
+              await writeRawBytesToAll(jbdCmd);
+            } else if (bmsState.bmsBrand === 'Daly BMS') {
+              const dalyCmd = new Uint8Array([0xA5, 0x40, 0x90, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7D]);
+              await writeRawBytesToAll(dalyCmd);
+            } else {
+              // Chưa nhận diện: gửi thăm dò cả ANT và JK
+              if (heartBeatTicks % 2 === 1) {
+                const antCmd = new Uint8Array([0x5A, 0x5A, 0x00, 0x00, 0x00, 0x00]);
+                await writeRawBytesToAll(antCmd);
+                await writeJkCommand(0x97);
+              } else {
+                await writeJkCommand(0x96);
+              }
             }
-            // Định kỳ gửi 0x96 mỗi 2.5s để giữ luồng dữ liệu cell luôn cập nhật
-            if (heartBeatTicks % 2 === 0) {
-              await writeJkCommand(0x96);
-            }
-          } catch (eHeart) {
-            console.warn('Lỗi chu kỳ heartbeat:', eHeart);
-          }
+          } catch (eHeart) {}
         }, 2200);
 
-        // 5. Watchdog kiểm tra nếu sau 3.5s chưa nhận được byte nào thì hiển thị cảnh báo hướng dẫn
+        // 5. Watchdog kiểm tra nếu sau 4 giây chưa nhận byte nào
         if (noDataWatchdogTimer) clearTimeout(noDataWatchdogTimer);
         noDataWatchdogTimer = setTimeout(() => {
           if (bmsState.connected && bleStats.bytesReceived === 0) {
             updateBleDiagUI();
           }
-        }, 3500);
+        }, 4000);
 
-        showToast(`Đã kết nối thành công tới ${bleDevice.name || 'JK-BMS'}! Đang đọc thông số...`, 'success');
       } catch (err) {
         bmsState.connected = false;
         writeCharacteristics = [];
         notifyCharacteristics = [];
         updateConnectionHeader();
         updateBleDiagUI();
+        renderAll();
 
         const errText = (err && (err.message || err.name)) ? `${err.name || ''}: ${err.message || ''}`.trim() : String(err);
         if (errText === '2' || errText.includes('2') || errText.includes('connectionTimeout') || errText.includes('readNotPermitted') || errText.includes('User cancelled') || errText.includes('abort')) {
-          showToast('Lỗi kết nối BLE (Mã 2): Mạch JK đang bị giữ bởi app khác, hoặc chưa cấp quyền Bluetooth cho Bluefy. Hãy vuốt tắt hẳn app JK-BMS gốc trên iPhone rồi thử lại!', 'error');
+          showToast('Lỗi kết nối BLE (Mã 2): Mạch BMS đang bị giữ bởi app khác, hoặc chưa cấp quyền Bluetooth cho Bluefy. Hãy vuốt tắt hẳn app gốc trên iPhone rồi thử lại!', 'error');
           const banner = document.getElementById('iosHelpBanner');
           if (banner) banner.classList.remove('hidden');
         } else {
@@ -1458,22 +1726,34 @@
       }
       updateConnectionHeader();
       updateBleDiagUI();
-      showToast('Đã ngắt kết nối Bluetooth với mạch JK-BMS.', 'info');
+      renderAll();
+      showToast('Đã ngắt kết nối Bluetooth với mạch BMS.', 'info');
     }
 
     function updateConnectionHeader() {
       const dot = document.getElementById('connDot');
       const statusText = document.getElementById('connStatusText');
       const btnLabel = document.getElementById('btnConnectLabel');
+      const quickDevName = document.getElementById('quickDeviceName');
+
+      const devTitle = (bleDevice && bleDevice.name) ? bleDevice.name : (bmsState.device.deviceName || 'Mạch Smart BMS');
 
       if (bmsState.connected) {
         dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
-        statusText.textContent = `Đang kết nối trực tiếp: ${bleDevice && bleDevice.name ? bleDevice.name : (bmsState.device.deviceName || 'JK-BMS')}`;
+        statusText.textContent = `Đang kết nối trực tiếp: ${devTitle}`;
         btnLabel.textContent = 'Ngắt kết nối BLE';
+        if (quickDevName) {
+          quickDevName.textContent = devTitle;
+          quickDevName.className = 'font-mono text-xs font-bold text-emerald-400';
+        }
       } else {
         dot.className = 'w-2 h-2 rounded-full bg-slate-500';
-        statusText.textContent = 'Chưa kết nối BLE — Sẵn sàng cho mọi hệ pin (3S–32S, mọi dung lượng Ah)';
+        statusText.textContent = 'Chưa kết nối BLE — Tự động nhận diện JK, ANT, Daly, JBD (3S–32S)';
         btnLabel.textContent = 'Kết nối Bluetooth';
+        if (quickDevName) {
+          quickDevName.textContent = 'Chưa kết nối';
+          quickDevName.className = 'font-mono text-xs text-slate-400';
+        }
       }
     }
 
@@ -1501,8 +1781,9 @@
 
       document.getElementById('protocolBadge').textContent = proto;
 
-      document.getElementById('quickDeviceName').textContent = bmsState.connected ? (d.deviceName || (bleDevice && bleDevice.name ? bleDevice.name : 'Đang đọc...')) : 'Chưa kết nối';
-      document.getElementById('quickModel').textContent = d.vendorId || '--';
+      const devTitle = (bleDevice && bleDevice.name) ? bleDevice.name : (d.deviceName || 'Mạch Smart BMS');
+      document.getElementById('quickDeviceName').textContent = bmsState.connected ? devTitle : 'Chưa kết nối';
+      document.getElementById('quickModel').textContent = bmsState.bmsBrand !== 'Tự động dò...' ? bmsState.bmsBrand : (d.vendorId || '--');
       document.getElementById('quickPinBle').textContent = d.devicePasscode || '--';
       document.getElementById('quickSetupPw').textContent = d.setupPasscode || '--';
 
@@ -1523,7 +1804,7 @@
         c.batteryTypeCode
       );
 
-      const nominalAh = c.nominalCapAh > 0 ? c.nominalCapAh : s.nominalCapAh;
+      const nominalAh = c.nominalCapAh > 0 ? c.nominalCapAh : (s.nominalCapAh > 0 ? s.nominalCapAh : 30.0);
       const remainAh = c.remainCapAh;
       const needChargeAh = Math.max(0, nominalAh - remainAh);
       const packVolt = c.totalVoltageV > 0 ? c.totalVoltageV : sumV;
@@ -1536,9 +1817,9 @@
       const needChargeEl = document.getElementById('metricNeedChargeAh');
 
       if (!bmsState.hasCellInfo && volts.length === 0) {
-        etaPrimary.textContent = 'Chưa có dữ liệu từ mạch JK-BMS';
+        etaPrimary.textContent = bmsState.connected ? 'Đang kết nối: Chờ đọc gói tin từ mạch...' : 'Chưa có dữ liệu từ mạch BMS';
         etaPrimary.className = 'text-base sm:text-lg font-bold text-slate-300 mt-0.5';
-        etaSub.textContent = 'Nhấn "Kết nối Bluetooth" để đọc dung lượng thực tế và tính thời gian sạc/xả';
+        etaSub.textContent = bmsState.connected ? 'Đang gửi lệnh kích hoạt tự động cho JK, ANT, Daly, JBD...' : 'Nhấn "Kết nối Bluetooth" để đọc dung lượng thực tế và tính thời gian sạc/xả';
         needChargeEl.textContent = '-- Ah (-- Wh)';
       } else {
         needChargeEl.textContent = `${needChargeAh.toFixed(2)} Ah (${Math.round(needEnergyWh)} Wh)`;
@@ -1707,7 +1988,7 @@
       if (volts.length === 0) {
         const emptyMsg = document.createElement('div');
         emptyMsg.className = 'col-span-full py-8 text-center text-xs sm:text-sm text-slate-400 border border-dashed border-slate-800 rounded-xl';
-        emptyMsg.textContent = 'Chưa có dữ liệu Cell. Hãy nhấn "Kết nối Bluetooth" tới mạch JK-BMS (hoặc nạp gói Hex thực tế ở tab Cài đặt Bảo vệ để kiểm tra).';
+        emptyMsg.textContent = bmsState.connected ? 'Đang kết nối: Chờ đọc gói tin từ mạch...' : 'Chưa có dữ liệu Cell. Hãy nhấn "Kết nối Bluetooth" tới mạch BMS (hoặc nạp gói Hex mẫu để kiểm tra).';
         grid.appendChild(emptyMsg);
       } else {
         const minBarV = s.cellUvpV > 1.5 ? s.cellUvpV : 2.5;
@@ -1748,7 +2029,7 @@
             </div>
             <div class="my-1.5 flex items-baseline justify-between">
               <span class="text-base font-mono font-bold text-white">${v.toFixed(3)} <span class="text-xs font-normal text-slate-400">V</span></span>
-              <span class="text-[11px] font-mono text-slate-400">${rMohm} mΩ</span>
+              <span class="text-[11px] font-mono text-slate-400">${rMohm ? rMohm + ' mΩ' : '--'}</span>
             </div>
             <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
               <div class="h-full ${barColor} cell-bar-transition" style="width: ${pct.toFixed(1)}%"></div>
@@ -1762,8 +2043,8 @@
       document.getElementById('devPinBle').textContent = d.devicePasscode || '--';
       document.getElementById('devSetupPw').textContent = d.setupPasscode || '--';
       document.getElementById('devSubPasscode').textContent = d.passcode || '--';
-      document.getElementById('devName').textContent = d.deviceName || '--';
-      document.getElementById('devVendor').textContent = d.vendorId || '--';
+      document.getElementById('devName').textContent = d.deviceName || (bleDevice && bleDevice.name ? bleDevice.name : '--');
+      document.getElementById('devVendor').textContent = d.vendorId || bmsState.bmsBrand || '--';
       document.getElementById('devHwVer').textContent = d.hwVersion || '--';
       document.getElementById('devSwVer').textContent = d.swVersion || '--';
       document.getElementById('devSerial').textContent = d.serialNumber || '--';
@@ -1773,8 +2054,8 @@
       document.getElementById('devUserData').textContent = d.userData || '--';
 
       // Tab 3: Cài đặt bảo vệ đầy đủ
-      document.getElementById('setCellCount').textContent = bmsState.hasSettingsInfo ? `${s.cellCount}S` : '--';
-      document.getElementById('setNominalCap').textContent = bmsState.hasSettingsInfo ? `${s.nominalCapAh.toFixed(1)} Ah` : '-- Ah';
+      document.getElementById('setCellCount').textContent = bmsState.hasSettingsInfo ? `${s.cellCount}S` : (volts.length ? `${volts.length}S (Thực tế)` : '--');
+      document.getElementById('setNominalCap').textContent = bmsState.hasSettingsInfo ? `${s.nominalCapAh.toFixed(1)} Ah` : `${nominalAh.toFixed(1)} Ah`;
       document.getElementById('setPowerOffV').textContent = bmsState.hasSettingsInfo ? `${s.powerOffV.toFixed(3)} V` : '-- V';
       document.getElementById('setCellOvp').textContent = bmsState.hasSettingsInfo ? `${s.cellOvpV.toFixed(3)} V` : '-- V';
       document.getElementById('setCellOvpr').textContent = bmsState.hasSettingsInfo ? `${s.cellOvprV.toFixed(3)} V` : '-- V';
@@ -1812,9 +2093,6 @@
         : '--°C / --°C';
     }
 
-    // =========================================================================
-    // SỰ KIỆN ĐIỀU KHIỂN TRÊN TRANG
-    // =========================================================================
     window.addEventListener('DOMContentLoaded', () => {
       // Ẩn/Hiện banner hướng dẫn iPhone
       const btnDismiss = document.getElementById('btnDismissIosHelp');
@@ -1846,12 +2124,20 @@
         });
       });
 
-      // Chọn phiên bản giao thức
-      document.getElementById('protocolSelect').addEventListener('change', (ev) => {
-        bmsState.protocolMode = ev.target.value;
-        renderAll();
-        showToast(`Đã chuyển chế độ giải mã giao thức sang: ${ev.target.value}`, 'info');
-      });
+      // Chọn phiên bản giao thức / chế độ nhận diện
+      const protoSel = document.getElementById('protocolSelect');
+      if (protoSel) {
+        protoSel.addEventListener('change', (ev) => {
+          bmsState.protocolMode = ev.target.value;
+          if (ev.target.value === 'ANT_BMS') bmsState.bmsBrand = 'ANT-BMS';
+          else if (ev.target.value === 'JK_BMS') bmsState.bmsBrand = 'JK-BMS';
+          else if (ev.target.value === 'DALY_BMS') bmsState.bmsBrand = 'Daly BMS';
+          else if (ev.target.value === 'JBD_BMS') bmsState.bmsBrand = 'JBD BMS';
+          else bmsState.bmsBrand = 'Tự động dò...';
+          renderAll();
+          showToast(`Đã chuyển chế độ: ${ev.target.value}`, 'info');
+        });
+      }
 
       // Nút Kết nối / Ngắt kết nối Bluetooth
       document.getElementById('btnConnectBle').addEventListener('click', () => {
@@ -1862,8 +2148,23 @@
         }
       });
 
-      // Nút Làm mới lệnh 0x97 & 0x96
-            // Nút gửi nhanh lệnh 0x96 & 0x97 trên thanh chẩn đoán
+      // Nút gửi nhanh lệnh ANT-BMS (5A 5A 00 00 00 00)
+      const btnAntCmd = document.getElementById('btnSendAntCmd');
+      if (btnAntCmd) {
+        btnAntCmd.addEventListener('click', async () => {
+          if (!bmsState.connected) {
+            showToast('Chưa kết nối Bluetooth tới mạch.', 'info');
+            return;
+          }
+          const antCmd = new Uint8Array([0x5A, 0x5A, 0x00, 0x00, 0x00, 0x00]);
+          await writeRawBytesToAll(antCmd);
+          bleStats.lastCmdSent = 'ANT (5A 5A)';
+          updateBleDiagUI();
+          showToast('Đã gửi lệnh kích hoạt ANT-BMS (5A 5A 00 00 00 00).', 'success');
+        });
+      }
+
+      // Nút gửi nhanh lệnh 0x96 & 0x97 trên thanh chẩn đoán
       const btnQ96 = document.getElementById('btnQuickCmd96');
       if (btnQ96) {
         btnQ96.addEventListener('click', async () => {
@@ -1872,7 +2173,7 @@
             return;
           }
           await writeJkCommand(0x96);
-          showToast('Đã gửi lệnh 0x96 yêu cầu thông số Cell & Cài đặt.', 'success');
+          showToast('Đã gửi lệnh 0x96 yêu cầu Cell & Cài đặt JK-BMS.', 'success');
         });
       }
 
@@ -1884,7 +2185,7 @@
             return;
           }
           await writeJkCommand(0x97);
-          showToast('Đã gửi lệnh 0x97 yêu cầu Tên & Mật khẩu.', 'success');
+          showToast('Đã gửi lệnh 0x97 yêu cầu Tên & Mật khẩu JK-BMS.', 'success');
         });
       }
 
@@ -1895,23 +2196,19 @@
             showToast('Chưa kết nối Bluetooth tới mạch.', 'info');
             return;
           }
-          showToast('Đang ép gửi lại cả 2 lệnh 0x97 và 0x96...', 'info');
-          await writeJkCommand(0x97);
-          setTimeout(async () => {
-            await writeJkCommand(0x96);
-          }, 400);
+          showToast('Đang ép gửi lại chuỗi lệnh kích hoạt toàn năng (ANT & JK)...', 'info');
+          await sendUniversalHandshake();
         });
       }
 
       document.getElementById('btnRefreshCmd').addEventListener('click', async () => {
         if (!bmsState.connected || writeCharacteristics.length === 0) {
-          showToast('Hãy kết nối Bluetooth tới mạch JK-BMS trước khi làm mới dữ liệu.', 'info');
+          showToast('Hãy kết nối Bluetooth tới mạch BMS trước khi làm mới dữ liệu.', 'info');
           return;
         }
         try {
-          await writeJkCommand(0x97);
-          setTimeout(() => { writeJkCommand(0x96); }, 400);
-          showToast('Đã gửi lệnh yêu cầu cập nhật lại dữ liệu (0x97 & 0x96).', 'success');
+          await sendUniversalHandshake();
+          showToast('Đã gửi chuỗi lệnh làm mới dữ liệu toàn năng.', 'success');
         } catch (err) {
           showToast(`Lỗi gửi lệnh: ${err.message || err}`, 'error');
         }
@@ -1929,20 +2226,20 @@
       // Xuất JSON
       document.getElementById('btnExportJson').addEventListener('click', () => {
         const jsonStr = JSON.stringify(bmsState, null, 2);
-        copyTextSafe(jsonStr, 'JSON dữ liệu JK-BMS');
+        copyTextSafe(jsonStr, 'JSON dữ liệu BMS');
       });
 
       // Nút yêu cầu đọc lại lệnh 0x97
       document.getElementById('btnRequestDeviceInfo').addEventListener('click', async () => {
-        if (bmsState.connected && activeWriteChar) {
+        if (bmsState.connected && writeCharacteristics.length > 0) {
           await writeJkCommand(0x97);
           showToast('Đã gửi lệnh 0x97 yêu cầu mạch trả về Tên & Mật khẩu.', 'success');
         } else {
-          showToast('Chưa kết nối Bluetooth với mạch JK-BMS.', 'info');
+          showToast('Chưa kết nối Bluetooth với mạch BMS.', 'info');
         }
       });
 
-      // Nút nạp gói Hex mẫu
+      // Nút nạp gói Hex mẫu JK-BMS
       document.getElementById('btnLoadSampleHex').addEventListener('click', () => {
         const sampleHex =
           '55 AA EB 90 02 8C FF 0C 01 0D 01 0D FF 0C 01 0D 01 0D FF 0C 01 0D 01 0D 01 0D 01 0D FF 0C 01 0D 01 0D 01 0D 01 0D ' +
@@ -1954,30 +2251,97 @@
           '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ' +
           '00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 CD';
         document.getElementById('hexInputBox').value = sampleHex;
-        showToast('Đã chèn gói Hex mẫu (Frame 0x02 - 16S 81Ah). Nhấn "Giải mã gói Hex" để xem!', 'info');
+        showToast('Đã chèn gói Hex mẫu JK-BMS (Frame 0x02 - 16S 81Ah). Nhấn "Giải mã gói Hex" để xem!', 'info');
       });
+
+      // Nút nạp gói Hex mẫu ANT-BMS (17S 60V 30Ah)
+      const btnAntSample = document.getElementById('btnLoadSampleAntHex');
+      if (btnAntSample) {
+        btnAntSample.addEventListener('click', () => {
+          // 140 bytes packet ANT-BMS
+          const antSampleBytes = [];
+          // Header AA 55 AA FF
+          antSampleBytes.push(0xAA, 0x55, 0xAA, 0xFF);
+          // Total Voltage: 60.8V = 608 = 0x0260
+          antSampleBytes.push(0x02, 0x60);
+          // 17 cells: 3576 mV (0x0DF8)
+          for (let i = 0; i < 17; i++) {
+            const mv = 3576 + (i % 4);
+            antSampleBytes.push((mv >> 8) & 0xFF, mv & 0xFF);
+          }
+          // Remaining 15 cells = 0
+          for (let i = 17; i < 32; i++) {
+            antSampleBytes.push(0x00, 0x00);
+          }
+          // Current: -15.0A = -150 = 0xFFFFFF6A
+          antSampleBytes.push(0xFF, 0xFF, 0xFF, 0x6A);
+          // SOC: 88%
+          antSampleBytes.push(88);
+          // Nominal cap: 30Ah = 30000000 = 0x01C9C380
+          antSampleBytes.push(0x01, 0xC9, 0xC3, 0x80);
+          // Remain cap: 26.4Ah = 26400000 = 0x0192D500
+          antSampleBytes.push(0x01, 0x92, 0xD5, 0x00);
+          // Cycles: 35 = 0x00000023
+          antSampleBytes.push(0x00, 0x00, 0x00, 0x23);
+          // Runtime: 120000s = 0x0001D4C0
+          antSampleBytes.push(0x00, 0x01, 0xD4, 0xC0);
+          // Temps: T1=32, T2=33, T3=30, T4=31, MOS=38
+          antSampleBytes.push(0x00, 32, 0x00, 33, 0x00, 30, 0x00, 31, 0x00, 38);
+          // MOS: Charge=1, Discharge=1, Balancer=1
+          antSampleBytes.push(1, 1, 1);
+          // Padding to 138 bytes
+          while (antSampleBytes.length < 138) {
+            antSampleBytes.push(0x00);
+          }
+          // Checksum
+          let sum = 0;
+          for (let i = 4; i < 138; i++) sum = (sum + antSampleBytes[i]) & 0xFFFF;
+          antSampleBytes.push((sum >> 8) & 0xFF, sum & 0xFF);
+
+          const hexStr = antSampleBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+          document.getElementById('hexInputBox').value = hexStr;
+          showToast('Đã chèn gói Hex mẫu ANT-BMS (17S 60V 30Ah - 140 bytes). Nhấn "Giải mã gói Hex" để xem!', 'info');
+        });
+      }
 
       // Nút giải mã gói Hex
       document.getElementById('btnDecodeHex').addEventListener('click', () => {
         const rawText = document.getElementById('hexInputBox').value.trim();
         if (!rawText) {
-          showToast('Vui lòng dán chuỗi Hex 300-byte vào ô trước khi giải mã.', 'error');
+          showToast('Vui lòng dán chuỗi Hex vào ô trước khi giải mã.', 'error');
           return;
         }
         const cleanHex = rawText.replace(/[^0-9a-fA-F]/g, '');
-        if (cleanHex.length < 600) {
-          showToast(`Gói tin cần đủ 300 bytes (600 ký tự Hex). Hiện tại mới có ${Math.floor(cleanHex.length / 2)} bytes.`, 'error');
+        const byteCount = Math.floor(cleanHex.length / 2);
+        if (byteCount < 13) {
+          showToast(`Gói tin quá ngắn (${byteCount} bytes).`, 'error');
           return;
         }
-        const bytes = new Uint8Array(300);
-        for (let i = 0; i < 300; i++) {
+        const bytes = new Uint8Array(byteCount);
+        for (let i = 0; i < byteCount; i++) {
           bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16);
         }
-        const ok = decodeJkFrame(bytes);
-        if (ok) {
-          showToast('Giải mã gói tin Hex thành công! Đã cập nhật thông số trên bảng.', 'success');
+
+        // Thử giải mã theo JK-BMS (300 bytes), ANT-BMS (140 bytes), JBD, Daly
+        let ok = false;
+        if (bytes[0] === 0x55 && bytes[1] === 0xAA && bytes.length >= 300) {
+          ok = decodeJkFrame(bytes);
+        } else if (bytes[0] === 0xAA && bytes[1] === 0x55 && bytes.length >= 140) {
+          ok = decodeAntFrame(bytes);
+        } else if (bytes[0] === 0xDD) {
+          ok = decodeJbdFrame(bytes);
+        } else if (bytes[0] === 0xA5) {
+          ok = decodeDalyFrame(bytes);
         } else {
-          showToast('Khung dữ liệu không hợp lệ hoặc sai mã kiểm tra CRC8.', 'error');
+          // Thử cấp vào bộ phân tích luồng
+          feedBleBytes(bytes);
+          ok = bmsState.hasCellInfo;
+        }
+
+        if (ok) {
+          showToast(`Giải mã thành công gói tin ${bmsState.bmsBrand}! Đã cập nhật giao diện.`, 'success');
+        } else {
+          showToast('Khung dữ liệu không khớp định dạng bất kỳ mạch BMS nào (JK, ANT, JBD, Daly).', 'error');
         }
       });
 
